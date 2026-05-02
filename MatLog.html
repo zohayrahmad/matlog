@@ -1,0 +1,1971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0e0e0e" />
+<title>Mat Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=JetBrains+Mono:wght@400;500;600&family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0e0e;
+    --bg-2: #161616;
+    --bg-3: #1d1d1d;
+    --line: #2a2a2a;
+    --line-2: #383838;
+    --ink: #f4f1ea;
+    --ink-dim: #b8b3a7;
+    --ink-faint: #6b6660;
+    --accent: #c9412f;
+    --accent-dim: #8a2d1f;
+    --gold: #d4a85a;
+    --green: #6b8e4e;
+    --warn: #d4a85a;
+    --radius: 14px;
+    --radius-sm: 10px;
+    --pad: 18px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Geist', -apple-system, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    overscroll-behavior: none;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    padding-bottom: 90px;
+    padding-top: env(safe-area-inset-top);
+  }
+  .display { font-family: 'Fraunces', serif; font-weight: 500; letter-spacing: -0.02em; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* HEADER */
+  header.app-header {
+    padding: 22px var(--pad) 14px;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; justify-content: space-between;
+    background: var(--bg);
+    position: sticky; top: 0; z-index: 50;
+  }
+  .brand { font-family: 'Fraunces', serif; font-weight: 600; font-size: 22px; letter-spacing: -0.03em; }
+  .brand .accent { color: var(--accent); }
+  .belt-badge {
+    font-size: 11px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-family: 'Geist', sans-serif;
+    font-weight: 500;
+  }
+  .belt-badge .stripes {
+    display: inline-flex; gap: 2px; margin-left: 8px; vertical-align: middle;
+  }
+  .belt-badge .stripe {
+    width: 4px; height: 12px; background: var(--ink-faint); border-radius: 1px;
+  }
+  .belt-badge .stripe.on { background: var(--ink); }
+
+  /* TABS */
+  nav.tabs {
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 480px;
+    display: grid; grid-template-columns: repeat(6, 1fr);
+    background: rgba(14,14,14,0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--line);
+    padding: 10px 4px calc(10px + env(safe-area-inset-bottom));
+    z-index: 100;
+  }
+  nav.tabs button {
+    background: none; border: 0; color: var(--ink-faint);
+    font-family: 'Geist', sans-serif; font-size: 10px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 8px 4px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    transition: color 0.2s;
+  }
+  nav.tabs button.active { color: var(--ink); }
+  nav.tabs button.active .icon { background: var(--accent); }
+  nav.tabs .icon {
+    width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 6px;
+    background: var(--bg-3);
+    transition: background 0.2s;
+  }
+  nav.tabs .icon svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+  /* SCREEN */
+  main { padding: 18px var(--pad) 24px; }
+  .screen { display: none; animation: fade 0.25s ease; }
+  .screen.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  h1.screen-title {
+    font-family: 'Fraunces', serif; font-weight: 500;
+    font-size: 30px; letter-spacing: -0.03em;
+    margin: 6px 0 4px;
+  }
+  .screen-sub {
+    color: var(--ink-dim); font-size: 13px; margin-bottom: 20px;
+  }
+
+  /* CARDS */
+  .card {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+  .card-tight { padding: 14px; }
+  .card-title {
+    font-size: 11px; color: var(--ink-faint);
+    text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  /* DASHBOARD */
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .stat-card {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .stat-num {
+    font-family: 'Fraunces', serif; font-weight: 500;
+    font-size: 36px; letter-spacing: -0.04em; line-height: 1;
+  }
+  .stat-num .unit { font-size: 14px; color: var(--ink-dim); margin-left: 2px; font-family: 'Geist', sans-serif; font-weight: 400; }
+  .stat-label {
+    font-size: 11px; color: var(--ink-faint);
+    text-transform: uppercase; letter-spacing: 0.1em;
+    margin-top: 6px; font-weight: 500;
+  }
+
+  /* BELT BAR */
+  .belt-progress {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 8px;
+  }
+  .belt-progress .bar {
+    flex: 1; height: 8px; background: var(--bg-3); border-radius: 100px; overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .belt-progress .fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--ink) 0%, var(--ink) 100%);
+    border-right: 6px solid var(--accent);
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .belt-progress .pct { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--ink-dim); font-weight: 500; }
+  .belt-readiness-detail {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px;
+    margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line);
+  }
+  .belt-readiness-detail .row {
+    display: flex; justify-content: space-between; font-size: 12px;
+  }
+  .belt-readiness-detail .row .k { color: var(--ink-faint); }
+  .belt-readiness-detail .row .v { color: var(--ink); font-family: 'JetBrains Mono', monospace; }
+
+  .caveat { font-size: 11px; color: var(--ink-faint); margin-top: 12px; line-height: 1.5; }
+
+  /* FOCUS ITEMS */
+  .focus-item {
+    background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px; margin-bottom: 10px;
+    position: relative;
+  }
+  .focus-item .theme {
+    font-family: 'Fraunces', serif; font-size: 18px; font-weight: 500;
+    letter-spacing: -0.01em; margin-bottom: 4px;
+  }
+  .focus-item .success {
+    font-size: 13px; color: var(--ink-dim); line-height: 1.5;
+  }
+  .focus-item .attempt-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line);
+  }
+  .focus-item .attempt-count {
+    font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    color: var(--ink-dim);
+  }
+  .focus-item .attempt-count strong { color: var(--accent); font-size: 16px; font-weight: 600; margin-right: 4px; }
+  .attempt-btn {
+    background: var(--accent); color: white; border: 0;
+    padding: 8px 16px; border-radius: 8px; font-weight: 600;
+    font-family: 'Geist', sans-serif; font-size: 13px;
+    cursor: pointer; letter-spacing: 0.02em;
+    transition: transform 0.1s, background 0.15s;
+  }
+  .attempt-btn:active { transform: scale(0.96); background: var(--accent-dim); }
+  .focus-actions { display: flex; gap: 6px; position: absolute; top: 12px; right: 12px; }
+  .icon-btn {
+    background: var(--bg-3); border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px; cursor: pointer;
+    color: var(--ink-dim); display: flex;
+  }
+  .icon-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+  /* INSIGHTS */
+  .insight {
+    background: linear-gradient(135deg, rgba(201, 65, 47, 0.08), transparent);
+    border: 1px solid var(--accent-dim);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .insight .dot {
+    width: 8px; height: 8px; background: var(--accent); border-radius: 50%;
+    margin-top: 6px; flex-shrink: 0;
+  }
+  .insight-text { font-size: 13px; line-height: 1.5; color: var(--ink); }
+
+  /* BUTTONS */
+  .btn {
+    background: var(--ink); color: var(--bg);
+    border: 0; padding: 12px 18px; border-radius: 10px;
+    font-weight: 600; font-size: 14px; cursor: pointer;
+    font-family: 'Geist', sans-serif;
+    transition: opacity 0.15s;
+  }
+  .btn:active { opacity: 0.8; }
+  .btn-block { width: 100%; }
+  .btn-accent { background: var(--accent); color: white; }
+  .btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--line-2); }
+  .btn-sm { padding: 8px 12px; font-size: 12px; border-radius: 8px; }
+
+  /* FORMS */
+  label.field {
+    display: block; margin-bottom: 14px;
+  }
+  label.field .lbl {
+    display: block; font-size: 11px; color: var(--ink-faint);
+    text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600;
+    margin-bottom: 6px;
+  }
+  input[type="text"], input[type="number"], input[type="date"], textarea, select {
+    width: 100%;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-family: 'Geist', sans-serif;
+    font-size: 15px;
+    transition: border-color 0.15s;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input:focus, textarea:focus, select:focus {
+    outline: none; border-color: var(--accent);
+  }
+  textarea { resize: vertical; min-height: 80px; }
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+  /* MOOD */
+  .mood-row {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+  }
+  .mood-btn {
+    background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 4px;
+    font-size: 18px; cursor: pointer;
+  }
+  .mood-btn.selected { border-color: var(--accent); background: rgba(201,65,47,0.12); }
+
+  /* SESSION CARDS */
+  .session-card {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px; margin-bottom: 10px;
+  }
+  .session-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .session-date {
+    font-family: 'Fraunces', serif; font-size: 16px; font-weight: 500;
+  }
+  .session-meta { font-size: 12px; color: var(--ink-faint); font-family: 'JetBrains Mono', monospace; }
+  .session-tags {
+    display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;
+  }
+  .tag {
+    background: var(--bg-3); border: 1px solid var(--line);
+    color: var(--ink-dim);
+    padding: 3px 8px; border-radius: 100px;
+    font-size: 11px; font-weight: 500;
+  }
+  .tag.stuck { border-color: var(--accent-dim); color: var(--accent); }
+
+  /* MOVE LIBRARY */
+  .category-group { margin-bottom: 22px; }
+  .category-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 10px;
+  }
+  .category-title {
+    font-family: 'Fraunces', serif; font-size: 22px; font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+  .category-count {
+    font-size: 11px; color: var(--ink-faint); font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+  }
+
+  .move-row {
+    background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px; margin-bottom: 6px;
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .move-row:active { border-color: var(--line-2); }
+  .move-name { font-size: 14px; flex: 1; padding-right: 10px; }
+  .state-pill {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
+    padding: 4px 8px; border-radius: 100px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    font-family: 'Geist', sans-serif;
+  }
+  .state-0 { background: var(--bg-3); color: var(--ink-faint); border: 1px solid var(--line); }
+  .state-1 { background: rgba(212,168,90,0.12); color: var(--gold); border: 1px solid rgba(212,168,90,0.3); }
+  .state-2 { background: rgba(212,168,90,0.18); color: var(--gold); border: 1px solid rgba(212,168,90,0.4); }
+  .state-3 { background: rgba(107,142,78,0.18); color: var(--green); border: 1px solid rgba(107,142,78,0.4); }
+  .state-4 { background: rgba(107,142,78,0.3); color: #a3c87e; border: 1px solid rgba(107,142,78,0.6); }
+
+  /* MOVES OVERVIEW */
+  .moves-overview {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .state-distribution {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+    margin-bottom: 16px;
+  }
+  .state-bucket {
+    text-align: center; padding: 10px 4px;
+    background: var(--bg-3); border-radius: 8px;
+    border: 1px solid var(--line);
+  }
+  .state-bucket .num {
+    font-family: 'Fraunces', serif; font-size: 22px; font-weight: 500;
+    line-height: 1; letter-spacing: -0.02em;
+  }
+  .state-bucket .lbl {
+    font-size: 9px; color: var(--ink-faint);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-top: 4px; font-weight: 600;
+  }
+  .state-bucket.b0 .num { color: var(--ink-faint); }
+  .state-bucket.b1 .num,
+  .state-bucket.b2 .num { color: var(--gold); }
+  .state-bucket.b3 .num,
+  .state-bucket.b4 .num { color: var(--green); }
+
+  .coverage-list { display: flex; flex-direction: column; gap: 10px; }
+  .coverage-row {
+    display: grid; grid-template-columns: 1fr; gap: 4px;
+  }
+  .coverage-row .top {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 12px;
+  }
+  .coverage-row .cat-name { color: var(--ink); font-weight: 500; }
+  .coverage-row .cat-stats { color: var(--ink-faint); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  .coverage-bar {
+    height: 6px; background: var(--bg-3); border-radius: 100px; overflow: hidden;
+    border: 1px solid var(--line);
+    display: flex;
+  }
+  .coverage-bar .seg-1 { background: rgba(212,168,90,0.4); }
+  .coverage-bar .seg-2 { background: var(--gold); }
+  .coverage-bar .seg-3 { background: var(--green); }
+  .coverage-bar .seg-4 { background: #a3c87e; }
+
+  .game-summary {
+    margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line);
+    font-size: 12px; line-height: 1.55; color: var(--ink-dim);
+  }
+  .game-summary strong { color: var(--ink); }
+
+  /* MOVE FILTERS */
+  .filter-row {
+    display: flex; gap: 6px; overflow-x: auto;
+    margin-bottom: 18px; padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .filter-row::-webkit-scrollbar { display: none; }
+  .filter-chip {
+    background: var(--bg-2); border: 1px solid var(--line);
+    color: var(--ink-dim);
+    padding: 7px 14px; border-radius: 100px;
+    font-size: 12px; font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .filter-chip.active {
+    background: var(--ink); color: var(--bg); border-color: var(--ink);
+  }
+
+  /* MODALS */
+  .modal-bg {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: none; align-items: flex-end; justify-content: center;
+    z-index: 200;
+  }
+  .modal-bg.active { display: flex; animation: fadeBg 0.2s; }
+  @keyframes fadeBg { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: var(--bg-2);
+    border-top: 1px solid var(--line-2);
+    border-radius: 20px 20px 0 0;
+    width: 100%; max-width: 480px;
+    max-height: 92vh; overflow-y: auto;
+    padding: 22px var(--pad) calc(28px + env(safe-area-inset-bottom));
+    animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: none; } }
+  .modal-handle {
+    width: 36px; height: 4px; background: var(--line-2);
+    border-radius: 100px; margin: 0 auto 16px;
+  }
+  .modal-title {
+    font-family: 'Fraunces', serif; font-size: 22px; font-weight: 500;
+    letter-spacing: -0.02em; margin-bottom: 16px;
+  }
+
+  /* STATE SELECTOR (in modal) */
+  .state-selector {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
+    margin-bottom: 14px;
+  }
+  .state-opt {
+    background: var(--bg-3); border: 1px solid var(--line);
+    border-radius: 8px; padding: 10px 4px;
+    font-size: 10px; text-align: center; cursor: pointer;
+    color: var(--ink-dim); font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .state-opt.selected.s0 { background: var(--bg-3); border-color: var(--ink-faint); color: var(--ink); }
+  .state-opt.selected.s1 { background: rgba(212,168,90,0.2); border-color: var(--gold); color: var(--gold); }
+  .state-opt.selected.s2 { background: rgba(212,168,90,0.25); border-color: var(--gold); color: var(--gold); }
+  .state-opt.selected.s3 { background: rgba(107,142,78,0.25); border-color: var(--green); color: #a3c87e; }
+  .state-opt.selected.s4 { background: rgba(107,142,78,0.4); border-color: var(--green); color: #a3c87e; }
+
+  /* TAP LOG */
+  .tap-list { display: flex; flex-direction: column; gap: 8px; }
+  .tap-item {
+    background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .tap-direction {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 3px 7px; border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .tap-direction.in { background: rgba(201,65,47,0.15); color: var(--accent); }
+  .tap-direction.out { background: rgba(107,142,78,0.18); color: var(--green); }
+  .tap-detail { flex: 1; font-size: 13px; }
+  .tap-detail .sub { color: var(--ink-faint); font-size: 11px; }
+
+  /* PATTERNS */
+  .pattern-list { display: flex; flex-direction: column; gap: 6px; }
+  .pattern-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0;
+  }
+  .pattern-row .name { flex: 1; font-size: 13px; }
+  .pattern-row .count { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-dim); }
+  .pattern-row .bar { width: 60px; height: 4px; background: var(--bg-3); border-radius: 2px; overflow: hidden; }
+  .pattern-row .bar .fill { height: 100%; background: var(--accent); }
+
+  /* WEEKLY REVIEW */
+  .review-hero {
+    background: linear-gradient(135deg, var(--bg-2), var(--bg-3));
+    border: 1px solid var(--line-2);
+    border-radius: var(--radius);
+    padding: 22px;
+    margin-bottom: 14px;
+  }
+  .review-week {
+    font-size: 11px; color: var(--ink-faint);
+    text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .review-summary {
+    font-family: 'Fraunces', serif; font-size: 19px; line-height: 1.45;
+    font-weight: 400; letter-spacing: -0.01em;
+  }
+  .review-section { margin-bottom: 18px; }
+  .review-section h4 {
+    font-size: 11px; color: var(--ink-faint);
+    text-transform: uppercase; letter-spacing: 0.12em;
+    margin: 0 0 8px; font-weight: 600;
+  }
+  .review-section p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--ink-dim); }
+
+  .empty {
+    text-align: center; padding: 40px 20px;
+    color: var(--ink-faint);
+  }
+  .empty .display { font-size: 24px; color: var(--ink-dim); margin-bottom: 6px; }
+  .empty p { font-size: 13px; max-width: 240px; margin: 0 auto; }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--ink); color: var(--bg);
+    padding: 10px 18px; border-radius: 100px;
+    font-size: 13px; font-weight: 600;
+    opacity: 0; transition: all 0.3s;
+    z-index: 300;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* FAB-style add button on Sessions screen */
+  .add-bar {
+    margin-bottom: 16px;
+  }
+
+  /* SETTINGS / EXPORT row */
+  .settings-row {
+    display: flex; gap: 8px; margin-top: 18px;
+  }
+  .settings-row button { flex: 1; }
+
+  hr.divider { border: 0; height: 1px; background: var(--line); margin: 18px 0; }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">Mat<span class="accent">.</span>Log</div>
+  <div class="belt-badge">
+    White
+    <span class="stripes" id="beltStripes"></span>
+  </div>
+</header>
+
+<main>
+
+  <!-- ========================= HOME ========================= -->
+  <section id="screen-home" class="screen active">
+    <h1 class="screen-title">Today</h1>
+    <div class="screen-sub" id="lastSessionSub">No sessions logged yet.</div>
+
+    <!-- Belt readiness -->
+    <div class="card">
+      <div class="card-title">Blue belt readiness</div>
+      <div class="belt-progress">
+        <div class="bar"><div class="fill" id="beltFill" style="width: 0%"></div></div>
+        <div class="pct" id="beltPct">0%</div>
+      </div>
+      <div class="belt-readiness-detail" id="beltDetail"></div>
+      <div class="caveat">A self-assessment signal, not a promotion timer. Promotion is your instructor's call.</div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-num" id="statMatTime">0<span class="unit">h</span></div>
+        <div class="stat-label">Total mat time</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statSpars">0</div>
+        <div class="stat-label">Total spars</div>
+      </div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-num" id="statSessionsWk">0</div>
+        <div class="stat-label">Sessions this week</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statStreak">0<span class="unit">d</span></div>
+        <div class="stat-label">Days since last</div>
+      </div>
+    </div>
+
+    <div class="card-title" style="margin-top:18px;">Active focus</div>
+    <div id="focusListHome"></div>
+
+    <div class="card-title" style="margin-top:18px;">Insights</div>
+    <div id="insightList"></div>
+  </section>
+
+  <!-- ========================= SESSIONS ========================= -->
+  <section id="screen-sessions" class="screen">
+    <h1 class="screen-title">Sessions</h1>
+    <div class="screen-sub">Log every session. Two minutes, max.</div>
+
+    <div class="add-bar">
+      <button class="btn btn-accent btn-block" onclick="openSessionModal()">+ Log session</button>
+    </div>
+
+    <div id="sessionsList"></div>
+  </section>
+
+  <!-- ========================= LIBRARY ========================= -->
+  <section id="screen-library" class="screen">
+    <h1 class="screen-title">Library</h1>
+    <div class="screen-sub">No-gi curriculum, ordered roughly by when most people learn each piece. Tap any move to update its state.</div>
+
+    <div class="moves-overview" id="movesOverview"></div>
+
+    <div class="filter-row" id="libraryFilters"></div>
+    <div id="libraryList"></div>
+
+    <hr class="divider">
+    <button class="btn btn-ghost btn-block btn-sm" onclick="openCustomMoveModal()">+ Add custom move</button>
+  </section>
+
+  <!-- ========================= STANDUP ========================= -->
+  <section id="screen-standup" class="screen">
+    <h1 class="screen-title">Standup</h1>
+    <div class="screen-sub">Your weak area. Building it deliberately.</div>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-num" id="standupStarted">0</div>
+        <div class="stat-label">Techniques started</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="standupSolid">0</div>
+        <div class="stat-label">Drilling or better</div>
+      </div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-num" id="standupSessions">0</div>
+        <div class="stat-label">Sessions w/ standup</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="standupPct">0<span class="unit">%</span></div>
+        <div class="stat-label">Of total sessions</div>
+      </div>
+    </div>
+
+    <div class="card-title" style="margin-top:18px;">Standup techniques</div>
+    <div id="standupMoves"></div>
+  </section>
+
+  <!-- ========================= TAPS ========================= -->
+  <section id="screen-taps" class="screen">
+    <h1 class="screen-title">Taps</h1>
+    <div class="screen-sub">The single highest-signal data in jiu jitsu.</div>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-num" id="tapsIn">0</div>
+        <div class="stat-label">Submitted by</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="tapsOut">0</div>
+        <div class="stat-label">Submitted</div>
+      </div>
+    </div>
+
+    <button class="btn btn-block" onclick="openTapModal()" style="margin: 14px 0;">+ Log a tap</button>
+
+    <div class="card">
+      <div class="card-title">What's tapping you (top 5)</div>
+      <div id="tappedByList" class="pattern-list"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">What you're hitting (top 5)</div>
+      <div id="hitList" class="pattern-list"></div>
+    </div>
+
+    <div class="card-title" style="margin-top:18px;">Recent taps</div>
+    <div id="tapsList" class="tap-list"></div>
+  </section>
+
+  <!-- ========================= REVIEW ========================= -->
+  <section id="screen-review" class="screen">
+    <h1 class="screen-title">Review</h1>
+    <div class="screen-sub">Auto-generated from your week. Read it Sunday evening.</div>
+
+    <div id="reviewContent"></div>
+
+    <hr class="divider">
+    <div class="settings-row">
+      <button class="btn btn-ghost btn-sm" onclick="exportData()">Export data</button>
+      <button class="btn btn-ghost btn-sm" onclick="importData()">Import data</button>
+    </div>
+  </section>
+
+</main>
+
+<!-- TABS -->
+<nav class="tabs">
+  <button data-tab="home" class="active" onclick="show('home')">
+    <span class="icon"><svg viewBox="0 0 24 24"><path d="M3 12L12 4l9 8M5 10v10h5v-6h4v6h5V10"/></svg></span>
+    Home
+  </button>
+  <button data-tab="sessions" onclick="show('sessions')">
+    <span class="icon"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 11h16"/></svg></span>
+    Log
+  </button>
+  <button data-tab="library" onclick="show('library')">
+    <span class="icon"><svg viewBox="0 0 24 24"><path d="M4 5v14h16V5zM4 9h16M9 5v14"/></svg></span>
+    Moves
+  </button>
+  <button data-tab="standup" onclick="show('standup')">
+    <span class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="6" r="2.5"/><path d="M12 9v6M9 11l-2 4M15 11l2 4M9 21l3-6 3 6"/></svg></span>
+    Standup
+  </button>
+  <button data-tab="taps" onclick="show('taps')">
+    <span class="icon"><svg viewBox="0 0 24 24"><path d="M5 12h14M5 12l5-5M5 12l5 5"/></svg></span>
+    Taps
+  </button>
+  <button data-tab="review" onclick="show('review')">
+    <span class="icon"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h12M4 18h16"/></svg></span>
+    Review
+  </button>
+</nav>
+
+<!-- ========================= MODALS ========================= -->
+<div class="modal-bg" id="sessionModal" onclick="if(event.target===this)closeModal('sessionModal')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Log session</div>
+
+    <div class="row-2">
+      <label class="field">
+        <span class="lbl">Date</span>
+        <input type="date" id="s_date">
+      </label>
+      <label class="field">
+        <span class="lbl">Total mins</span>
+        <input type="number" id="s_minutes" placeholder="90" min="0">
+      </label>
+    </div>
+
+    <div class="row-2">
+      <label class="field">
+        <span class="lbl">Spars</span>
+        <input type="number" id="s_spars" placeholder="5" min="0">
+      </label>
+      <label class="field">
+        <span class="lbl">Avg mins / spar</span>
+        <input type="number" id="s_sparMins" placeholder="6" min="0">
+      </label>
+    </div>
+
+    <label class="field">
+      <span class="lbl">Class focus / what was taught</span>
+      <input type="text" id="s_taught" placeholder="e.g. underhook escape from side control">
+    </label>
+
+    <label class="field">
+      <span class="lbl">What I drilled or worked</span>
+      <input type="text" id="s_drilled" placeholder="optional">
+    </label>
+
+    <label class="field">
+      <span class="lbl">Where I got stuck</span>
+      <input type="text" id="s_stuck" placeholder="e.g. bottom side control, again">
+    </label>
+
+    <label class="field">
+      <span class="lbl">One thing to fix</span>
+      <input type="text" id="s_fix" placeholder="optional">
+    </label>
+
+    <label class="field">
+      <span class="lbl">Energy / mood</span>
+      <div class="mood-row" id="moodRow">
+        <button class="mood-btn" data-mood="1">😩</button>
+        <button class="mood-btn" data-mood="2">😐</button>
+        <button class="mood-btn" data-mood="3">🙂</button>
+        <button class="mood-btn" data-mood="4">💪</button>
+        <button class="mood-btn" data-mood="5">🔥</button>
+      </div>
+    </label>
+
+    <label class="field">
+      <span class="lbl">Notes (optional)</span>
+      <textarea id="s_notes" placeholder="Anything else worth remembering..."></textarea>
+    </label>
+
+    <div class="row-2">
+      <button class="btn btn-ghost btn-block" onclick="closeModal('sessionModal')">Cancel</button>
+      <button class="btn btn-accent btn-block" onclick="saveSession()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- TAP MODAL -->
+<div class="modal-bg" id="tapModal" onclick="if(event.target===this)closeModal('tapModal')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Log a tap</div>
+
+    <div class="state-selector" style="grid-template-columns: 1fr 1fr; margin-bottom: 18px;">
+      <div class="state-opt" id="dirOut" onclick="setTapDir('out')">I submitted</div>
+      <div class="state-opt" id="dirIn" onclick="setTapDir('in')">I got tapped</div>
+    </div>
+
+    <label class="field">
+      <span class="lbl">Submission</span>
+      <input type="text" id="t_sub" placeholder="e.g. rear naked, triangle, kimura">
+    </label>
+
+    <label class="field">
+      <span class="lbl">From position (optional)</span>
+      <input type="text" id="t_pos" placeholder="e.g. mount, back control, half guard">
+    </label>
+
+    <label class="field">
+      <span class="lbl">Opponent (optional, rough handle)</span>
+      <input type="text" id="t_opp" placeholder="e.g. blue belt, larger">
+    </label>
+
+    <div class="row-2">
+      <button class="btn btn-ghost btn-block" onclick="closeModal('tapModal')">Cancel</button>
+      <button class="btn btn-accent btn-block" onclick="saveTap()">Save tap</button>
+    </div>
+  </div>
+</div>
+
+<!-- MOVE STATE MODAL -->
+<div class="modal-bg" id="moveModal" onclick="if(event.target===this)closeModal('moveModal')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="moveModalTitle">Move</div>
+    <div style="font-size:12px; color: var(--ink-faint); margin-bottom: 16px;" id="moveModalCat"></div>
+
+    <div class="card-title">State</div>
+    <div class="state-selector" id="moveStateSelector">
+      <div class="state-opt" data-s="0">Unknown</div>
+      <div class="state-opt" data-s="1">Learning</div>
+      <div class="state-opt" data-s="2">Drilling</div>
+      <div class="state-opt" data-s="3">In rolls</div>
+      <div class="state-opt" data-s="4">Reliable</div>
+    </div>
+
+    <label class="field">
+      <span class="lbl">Notes (optional)</span>
+      <textarea id="m_notes" placeholder="Cues, details, mistakes..."></textarea>
+    </label>
+
+    <div class="row-2">
+      <button class="btn btn-ghost btn-block" onclick="closeModal('moveModal')">Cancel</button>
+      <button class="btn btn-accent btn-block" onclick="saveMove()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- CUSTOM MOVE MODAL -->
+<div class="modal-bg" id="customMoveModal" onclick="if(event.target===this)closeModal('customMoveModal')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Add custom move</div>
+
+    <label class="field">
+      <span class="lbl">Move name</span>
+      <input type="text" id="cm_name" placeholder="e.g. crucifix from turtle">
+    </label>
+
+    <label class="field">
+      <span class="lbl">Category</span>
+      <select id="cm_cat"></select>
+    </label>
+
+    <div class="row-2">
+      <button class="btn btn-ghost btn-block" onclick="closeModal('customMoveModal')">Cancel</button>
+      <button class="btn btn-accent btn-block" onclick="saveCustomMove()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- FOCUS MODAL -->
+<div class="modal-bg" id="focusModal" onclick="if(event.target===this)closeModal('focusModal')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="focusModalTitle">New focus</div>
+
+    <label class="field">
+      <span class="lbl">Theme</span>
+      <input type="text" id="f_theme" placeholder="e.g. Develop a reliable knee shield">
+    </label>
+    <label class="field">
+      <span class="lbl">What success looks like</span>
+      <textarea id="f_success" placeholder="e.g. recovering guard or sweeping from knee shield in live rolls without panicking"></textarea>
+    </label>
+
+    <div class="row-2">
+      <button class="btn btn-ghost btn-block" onclick="closeModal('focusModal')">Cancel</button>
+      <button class="btn btn-accent btn-block" onclick="saveFocus()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   DATA: NO-GI CURRICULUM, ORDERED ROUGHLY BY LEARNING ORDER
+   ========================================================= */
+const CURRICULUM = [
+  // FUNDAMENTALS (the things every white belt should drill first)
+  { id: 'f1', cat: 'Fundamentals', name: 'Shrimp / hip escape' },
+  { id: 'f2', cat: 'Fundamentals', name: 'Bridge & roll (upa)' },
+  { id: 'f3', cat: 'Fundamentals', name: 'Technical stand-up' },
+  { id: 'f4', cat: 'Fundamentals', name: 'Forward & backward break-falls' },
+  { id: 'f5', cat: 'Fundamentals', name: 'Granby roll' },
+  { id: 'f6', cat: 'Fundamentals', name: 'Frame & post (basics)' },
+
+  // ESCAPES (priority for white belt: don't get smashed)
+  { id: 'e1', cat: 'Escapes', name: 'Mount escape (upa)' },
+  { id: 'e2', cat: 'Escapes', name: 'Mount escape (elbow-knee)' },
+  { id: 'e3', cat: 'Escapes', name: 'Side control escape (underhook to knees)' },
+  { id: 'e4', cat: 'Escapes', name: 'Side control escape (frame & shrimp)' },
+  { id: 'e5', cat: 'Escapes', name: 'Back escape (scoop & pin hand)' },
+  { id: 'e6', cat: 'Escapes', name: 'Back escape (chair sit)' },
+  { id: 'e7', cat: 'Escapes', name: 'Knee on belly escape' },
+  { id: 'e8', cat: 'Escapes', name: 'North-south escape' },
+  { id: 'e9', cat: 'Escapes', name: 'Headlock escape' },
+
+  // GUARD RETENTION & BASIC GUARD
+  { id: 'g1', cat: 'Guard (closed/half/butterfly)', name: 'Closed guard posture-up & break' },
+  { id: 'g2', cat: 'Guard (closed/half/butterfly)', name: 'Closed guard hip bump sweep' },
+  { id: 'g3', cat: 'Guard (closed/half/butterfly)', name: 'Closed guard scissor sweep' },
+  { id: 'g4', cat: 'Guard (closed/half/butterfly)', name: 'Closed guard pendulum sweep' },
+  { id: 'g5', cat: 'Guard (closed/half/butterfly)', name: 'Closed guard arm bar' },
+  { id: 'g6', cat: 'Guard (closed/half/butterfly)', name: 'Closed guard triangle' },
+  { id: 'g7', cat: 'Guard (closed/half/butterfly)', name: 'Closed guard kimura' },
+  { id: 'g8', cat: 'Guard (closed/half/butterfly)', name: 'Closed guard guillotine' },
+  { id: 'g9', cat: 'Guard (closed/half/butterfly)', name: 'Half guard knee shield (frame & block)' },
+  { id: 'g10', cat: 'Guard (closed/half/butterfly)', name: 'Half guard underhook recovery' },
+  { id: 'g11', cat: 'Guard (closed/half/butterfly)', name: 'Half guard old-school sweep' },
+  { id: 'g12', cat: 'Guard (closed/half/butterfly)', name: 'Half guard dogfight to back' },
+  { id: 'g13', cat: 'Guard (closed/half/butterfly)', name: 'Butterfly guard hook sweep' },
+  { id: 'g14', cat: 'Guard (closed/half/butterfly)', name: 'Butterfly to single leg X' },
+  { id: 'g15', cat: 'Guard (closed/half/butterfly)', name: 'Butterfly to back take' },
+
+  // OPEN GUARD (no-gi specific)
+  { id: 'o1', cat: 'Open Guard (no-gi)', name: 'Single leg X (SLX) entry' },
+  { id: 'o2', cat: 'Open Guard (no-gi)', name: 'Single leg X technical stand-up sweep' },
+  { id: 'o3', cat: 'Open Guard (no-gi)', name: 'X-guard from butterfly' },
+  { id: 'o4', cat: 'Open Guard (no-gi)', name: 'X-guard sweep' },
+  { id: 'o5', cat: 'Open Guard (no-gi)', name: 'De la Riva (no-gi grips)' },
+  { id: 'o6', cat: 'Open Guard (no-gi)', name: 'Reverse de la Riva' },
+  { id: 'o7', cat: 'Open Guard (no-gi)', name: '50/50 entries' },
+  { id: 'o8', cat: 'Open Guard (no-gi)', name: 'Z guard / quarter guard' },
+  { id: 'o9', cat: 'Open Guard (no-gi)', name: 'Sit-up guard / scissor recovery' },
+
+  // PASSING
+  { id: 'p1', cat: 'Passing', name: 'Knee cut pass' },
+  { id: 'p2', cat: 'Passing', name: 'Toreando (bullfighter) pass' },
+  { id: 'p3', cat: 'Passing', name: 'Stack pass' },
+  { id: 'p4', cat: 'Passing', name: 'Long step / leg drag' },
+  { id: 'p5', cat: 'Passing', name: 'Folding pass' },
+  { id: 'p6', cat: 'Passing', name: 'Over-under pass' },
+  { id: 'p7', cat: 'Passing', name: 'Smash pass from half' },
+  { id: 'p8', cat: 'Passing', name: 'Body lock pass' },
+
+  // TOP CONTROL & SUBS
+  { id: 't1', cat: 'Top control & submissions', name: 'Mount maintenance (high mount)' },
+  { id: 't2', cat: 'Top control & submissions', name: 'Mount arm bar' },
+  { id: 't3', cat: 'Top control & submissions', name: 'Mount cross choke (no-gi: arm triangle / Ezekiel)' },
+  { id: 't4', cat: 'Top control & submissions', name: 'Side control: Americana' },
+  { id: 't5', cat: 'Top control & submissions', name: 'Side control: kimura' },
+  { id: 't6', cat: 'Top control & submissions', name: 'Side control: arm triangle' },
+  { id: 't7', cat: 'Top control & submissions', name: 'North-south choke' },
+  { id: 't8', cat: 'Top control & submissions', name: 'Knee on belly transitions' },
+
+  // BACK CONTROL
+  { id: 'b1', cat: 'Back control', name: 'Back take from turtle' },
+  { id: 'b2', cat: 'Back control', name: 'Back take from mount' },
+  { id: 'b3', cat: 'Back control', name: 'Back maintenance (seat belt + hooks)' },
+  { id: 'b4', cat: 'Back control', name: 'Rear naked choke (RNC)' },
+  { id: 'b5', cat: 'Back control', name: 'Body triangle' },
+  { id: 'b6', cat: 'Back control', name: 'Strangle from body triangle' },
+
+  // LEG LOCKS (no-gi essential)
+  { id: 'l1', cat: 'Leg locks', name: 'Straight ankle lock (Achilles)' },
+  { id: 'l2', cat: 'Leg locks', name: 'Ashi garami (basic)' },
+  { id: 'l3', cat: 'Leg locks', name: 'Single leg X to ankle' },
+  { id: 'l4', cat: 'Leg locks', name: 'Inside Sankaku / 411 / honey hole entry' },
+  { id: 'l5', cat: 'Leg locks', name: 'Heel hook (inside / outside)' },
+  { id: 'l6', cat: 'Leg locks', name: 'Toe hold' },
+  { id: 'l7', cat: 'Leg locks', name: 'Knee bar' },
+  { id: 'l8', cat: 'Leg locks', name: 'Leg lock defence: boot & hide' },
+
+  // STANDUP & WRESTLING (your weak area, broader coverage)
+  { id: 'st1', cat: 'Standup & wrestling', name: 'Stance & level changes' },
+  { id: 'st2', cat: 'Standup & wrestling', name: 'Collar tie / hand fight' },
+  { id: 'st3', cat: 'Standup & wrestling', name: 'Snap down to front headlock' },
+  { id: 'st4', cat: 'Standup & wrestling', name: 'Front headlock to go-behind' },
+  { id: 'st5', cat: 'Standup & wrestling', name: 'Single leg (high crotch)' },
+  { id: 'st6', cat: 'Standup & wrestling', name: 'Single leg finishes (run the pipe, hi-c)' },
+  { id: 'st7', cat: 'Standup & wrestling', name: 'Double leg' },
+  { id: 'st8', cat: 'Standup & wrestling', name: 'Body lock takedown' },
+  { id: 'st9', cat: 'Standup & wrestling', name: 'Inside trip' },
+  { id: 'st10', cat: 'Standup & wrestling', name: 'Outside trip / kosoto' },
+  { id: 'st11', cat: 'Standup & wrestling', name: 'Arm drag to back' },
+  { id: 'st12', cat: 'Standup & wrestling', name: 'Sprawl & defend takedowns' },
+  { id: 'st13', cat: 'Standup & wrestling', name: 'Pummel to underhook' },
+  { id: 'st14', cat: 'Standup & wrestling', name: 'Guard pull (only if you must)' },
+
+  // CONCEPTS (separate layer)
+  { id: 'c1', cat: 'Concepts', name: 'Frames vs blocks' },
+  { id: 'c2', cat: 'Concepts', name: 'Underhooks as currency' },
+  { id: 'c3', cat: 'Concepts', name: 'Head position & posture' },
+  { id: 'c4', cat: 'Concepts', name: 'Hip-to-hip connection (top)' },
+  { id: 'c5', cat: 'Concepts', name: 'Threat-and-counter (chains)' },
+  { id: 'c6', cat: 'Concepts', name: 'Escape priority: hips before shoulders' },
+  { id: 'c7', cat: 'Concepts', name: 'Hand fighting on the ground' },
+  { id: 'c8', cat: 'Concepts', name: 'Inside space control' },
+  { id: 'c9', cat: 'Concepts', name: 'Stay heavy: weight before grip' },
+  { id: 'c10', cat: 'Concepts', name: 'Win the inside angle (standup)' },
+  { id: 'c11', cat: 'Concepts', name: 'Defence first, offence later' },
+  { id: 'c12', cat: 'Concepts', name: 'Recover guard before sweep before submit' },
+  { id: 'c13', cat: 'Concepts', name: 'Patience under pressure' },
+  { id: 'c14', cat: 'Concepts', name: 'Breath control' },
+  { id: 'c15', cat: 'Concepts', name: 'Drilling vs flow vs hard rolling' },
+];
+
+const CATEGORIES = [
+  'Fundamentals',
+  'Escapes',
+  'Guard (closed/half/butterfly)',
+  'Open Guard (no-gi)',
+  'Passing',
+  'Top control & submissions',
+  'Back control',
+  'Leg locks',
+  'Standup & wrestling',
+  'Concepts',
+];
+
+const STATE_LABELS = ['Unknown', 'Learning', 'Drilling', 'In rolls', 'Reliable'];
+
+/* =========================================================
+   STORAGE
+   ========================================================= */
+const STORAGE_KEY = 'matlog_v1';
+
+// Backfilled sessions: 35 sessions Sep 2025 -> May 2026
+// 28 standard (drilling 30-45m + 3-5 spars), 7 open mat (5-7 spars)
+const SEED_SESSIONS = [{"date":"2026-05-01","minutes":50,"spars":3,"sparMins":5,"type":"std"},{"date":"2026-04-29","minutes":42,"spars":6,"sparMins":5,"type":"open"},{"date":"2026-04-28","minutes":51,"spars":6,"sparMins":7,"type":"open"},{"date":"2026-04-25","minutes":55,"spars":4,"sparMins":5,"type":"std"},{"date":"2026-04-20","minutes":41,"spars":5,"sparMins":7,"type":"open"},{"date":"2026-04-18","minutes":50,"spars":4,"sparMins":5,"type":"std"},{"date":"2026-04-16","minutes":60,"spars":4,"sparMins":5,"type":"std"},{"date":"2026-04-15","minutes":69,"spars":4,"sparMins":6,"type":"std"},{"date":"2026-04-10","minutes":54,"spars":4,"sparMins":6,"type":"std"},{"date":"2026-04-04","minutes":64,"spars":4,"sparMins":6,"type":"std"},{"date":"2026-04-03","minutes":54,"spars":4,"sparMins":6,"type":"std"},{"date":"2026-03-30","minutes":65,"spars":5,"sparMins":5,"type":"std"},{"date":"2026-03-23","minutes":69,"spars":4,"sparMins":6,"type":"std"},{"date":"2026-03-18","minutes":59,"spars":4,"sparMins":6,"type":"std"},{"date":"2026-03-12","minutes":59,"spars":4,"sparMins":6,"type":"std"},{"date":"2026-03-10","minutes":60,"spars":5,"sparMins":6,"type":"std"},{"date":"2026-03-09","minutes":42,"spars":6,"sparMins":5,"type":"open"},{"date":"2026-02-23","minutes":41,"spars":5,"sparMins":7,"type":"open"},{"date":"2026-02-18","minutes":64,"spars":4,"sparMins":6,"type":"std"},{"date":"2026-02-16","minutes":54,"spars":4,"sparMins":6,"type":"std"},{"date":"2026-02-11","minutes":60,"spars":3,"sparMins":5,"type":"std"},{"date":"2026-02-07","minutes":59,"spars":4,"sparMins":6,"type":"std"},{"date":"2026-01-18","minutes":55,"spars":4,"sparMins":5,"type":"std"},{"date":"2026-01-14","minutes":60,"spars":5,"sparMins":6,"type":"std"},{"date":"2026-01-11","minutes":38,"spars":5,"sparMins":6,"type":"open"},{"date":"2026-01-04","minutes":59,"spars":4,"sparMins":6,"type":"std"},{"date":"2025-12-27","minutes":69,"spars":4,"sparMins":6,"type":"std"},{"date":"2025-11-17","minutes":58,"spars":3,"sparMins":6,"type":"std"},{"date":"2025-11-07","minutes":65,"spars":5,"sparMins":6,"type":"std"},{"date":"2025-10-27","minutes":60,"spars":5,"sparMins":5,"type":"std"},{"date":"2025-10-22","minutes":75,"spars":5,"sparMins":6,"type":"std"},{"date":"2025-10-18","minutes":65,"spars":4,"sparMins":5,"type":"std"},{"date":"2025-10-13","minutes":33,"spars":5,"sparMins":5,"type":"open"},{"date":"2025-09-20","minutes":54,"spars":4,"sparMins":6,"type":"std"},{"date":"2025-09-10","minutes":50,"spars":3,"sparMins":5,"type":"std"}];
+
+function buildSeedSessions() {
+  return SEED_SESSIONS.map((s, i) => ({
+    id: `seed_${i}`,
+    date: s.date,
+    minutes: s.minutes,
+    spars: s.spars,
+    sparMins: s.sparMins,
+    taught: s.type === 'open' ? 'Open mat' : '',
+    drilled: '',
+    stuck: '',
+    fix: '',
+    mood: 0,
+    notes: s.type === 'open' ? 'Open mat — sparring only.' : '',
+  }));
+}
+
+const BELT_START_DATE = new Date('2025-09-10').getTime();
+
+const defaultState = () => ({
+  startedAt: BELT_START_DATE,
+  beltStartedAt: BELT_START_DATE,
+  belt: 'white',
+  stripes: 0,
+  moves: CURRICULUM.reduce((acc, m) => { acc[m.id] = { state: 0, notes: '' }; return acc; }, {}),
+  customMoves: [],
+  sessions: buildSeedSessions(),
+  taps: [],
+  focus: [],
+  reviews: [],
+  filter: 'all',
+});
+
+let state = loadState();
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultState();
+    const parsed = JSON.parse(raw);
+    // patch in any new curriculum moves not previously stored
+    CURRICULUM.forEach(m => {
+      if (!parsed.moves[m.id]) parsed.moves[m.id] = { state: 0, notes: '' };
+    });
+    if (!parsed.focus) parsed.focus = [];
+    if (!parsed.reviews) parsed.reviews = [];
+    if (!parsed.customMoves) parsed.customMoves = [];
+    if (!parsed.beltStartedAt) parsed.beltStartedAt = parsed.startedAt || Date.now();
+    return parsed;
+  } catch (e) {
+    return defaultState();
+  }
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+/* =========================================================
+   NAV
+   ========================================================= */
+function show(tab) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + tab).classList.add('active');
+  document.querySelectorAll('nav.tabs button').forEach(b =>
+    b.classList.toggle('active', b.dataset.tab === tab));
+  // refresh
+  renderAll();
+  window.scrollTo(0, 0);
+}
+
+/* =========================================================
+   MODAL HELPERS
+   ========================================================= */
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+/* =========================================================
+   SESSION
+   ========================================================= */
+function openSessionModal() {
+  document.getElementById('s_date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('s_minutes').value = '';
+  document.getElementById('s_spars').value = '';
+  document.getElementById('s_sparMins').value = '';
+  document.getElementById('s_taught').value = '';
+  document.getElementById('s_drilled').value = '';
+  document.getElementById('s_stuck').value = '';
+  document.getElementById('s_fix').value = '';
+  document.getElementById('s_notes').value = '';
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+  openModal('sessionModal');
+}
+
+document.querySelectorAll('.mood-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.mood-btn').forEach(x => x.classList.remove('selected'));
+    b.classList.add('selected');
+  });
+});
+
+function saveSession() {
+  const date = document.getElementById('s_date').value;
+  const minutes = parseInt(document.getElementById('s_minutes').value) || 0;
+  if (!date || minutes <= 0) {
+    toast('Date and minutes required');
+    return;
+  }
+  const session = {
+    id: 'ses_' + Date.now(),
+    date,
+    minutes,
+    spars: parseInt(document.getElementById('s_spars').value) || 0,
+    sparMins: parseInt(document.getElementById('s_sparMins').value) || 0,
+    taught: document.getElementById('s_taught').value.trim(),
+    drilled: document.getElementById('s_drilled').value.trim(),
+    stuck: document.getElementById('s_stuck').value.trim(),
+    fix: document.getElementById('s_fix').value.trim(),
+    mood: parseInt(document.querySelector('.mood-btn.selected')?.dataset.mood) || 0,
+    notes: document.getElementById('s_notes').value.trim(),
+  };
+  state.sessions.unshift(session);
+  saveState();
+  closeModal('sessionModal');
+  toast('Session logged');
+  renderAll();
+}
+
+function renderSessions() {
+  const list = document.getElementById('sessionsList');
+  if (state.sessions.length === 0) {
+    list.innerHTML = `<div class="empty"><div class="display">No sessions yet</div><p>Log your first one. The streak starts now.</p></div>`;
+    return;
+  }
+  list.innerHTML = state.sessions.map(s => {
+    const tags = [];
+    if (s.taught) tags.push(`<span class="tag">${escapeHtml(s.taught)}</span>`);
+    if (s.drilled) tags.push(`<span class="tag">drilled: ${escapeHtml(s.drilled)}</span>`);
+    if (s.stuck) tags.push(`<span class="tag stuck">stuck: ${escapeHtml(s.stuck)}</span>`);
+    return `
+      <div class="session-card">
+        <div class="session-head">
+          <div class="session-date">${formatDate(s.date)}</div>
+          <div class="session-meta">${s.minutes}m · ${s.spars} spars</div>
+        </div>
+        ${s.fix ? `<div style="font-size:13px; color: var(--ink-dim); margin-bottom:6px;">Fix: ${escapeHtml(s.fix)}</div>` : ''}
+        ${s.notes ? `<div style="font-size:13px; color: var(--ink-dim); margin-bottom:6px;">${escapeHtml(s.notes)}</div>` : ''}
+        ${tags.length ? `<div class="session-tags">${tags.join('')}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+/* =========================================================
+   TAPS
+   ========================================================= */
+let pendingTapDir = 'in';
+function openTapModal() {
+  document.getElementById('t_sub').value = '';
+  document.getElementById('t_pos').value = '';
+  document.getElementById('t_opp').value = '';
+  setTapDir('in');
+  openModal('tapModal');
+}
+function setTapDir(dir) {
+  pendingTapDir = dir;
+  document.getElementById('dirIn').classList.toggle('selected', dir === 'in');
+  document.getElementById('dirIn').classList.toggle('s4', dir === 'in');
+  document.getElementById('dirOut').classList.toggle('selected', dir === 'out');
+  document.getElementById('dirOut').classList.toggle('s3', dir === 'out');
+}
+function saveTap() {
+  const sub = document.getElementById('t_sub').value.trim();
+  if (!sub) { toast('Submission required'); return; }
+  state.taps.unshift({
+    id: 'tap_' + Date.now(),
+    dir: pendingTapDir,
+    sub,
+    pos: document.getElementById('t_pos').value.trim(),
+    opp: document.getElementById('t_opp').value.trim(),
+    ts: Date.now(),
+  });
+  saveState();
+  closeModal('tapModal');
+  toast('Tap logged');
+  renderAll();
+}
+
+function renderTaps() {
+  const tapsIn = state.taps.filter(t => t.dir === 'in');
+  const tapsOut = state.taps.filter(t => t.dir === 'out');
+  document.getElementById('tapsIn').textContent = tapsIn.length;
+  document.getElementById('tapsOut').textContent = tapsOut.length;
+
+  // patterns
+  const groupBy = arr => arr.reduce((acc, t) => {
+    const k = t.sub.toLowerCase();
+    acc[k] = (acc[k] || 0) + 1;
+    return acc;
+  }, {});
+  const renderPatterns = (id, group) => {
+    const sorted = Object.entries(group).sort((a,b) => b[1]-a[1]).slice(0,5);
+    if (sorted.length === 0) {
+      document.getElementById(id).innerHTML = `<div style="font-size:12px; color: var(--ink-faint); padding: 6px 0;">Nothing logged yet.</div>`;
+      return;
+    }
+    const max = sorted[0][1];
+    document.getElementById(id).innerHTML = sorted.map(([k,c]) => `
+      <div class="pattern-row">
+        <div class="name">${escapeHtml(capitalize(k))}</div>
+        <div class="bar"><div class="fill" style="width:${(c/max)*100}%"></div></div>
+        <div class="count">${c}</div>
+      </div>
+    `).join('');
+  };
+  renderPatterns('tappedByList', groupBy(tapsIn));
+  renderPatterns('hitList', groupBy(tapsOut));
+
+  // recent list
+  const list = document.getElementById('tapsList');
+  if (state.taps.length === 0) {
+    list.innerHTML = `<div class="empty"><p>No taps logged yet. The patterns surface fast once you start.</p></div>`;
+    return;
+  }
+  list.innerHTML = state.taps.slice(0, 25).map(t => `
+    <div class="tap-item">
+      <div class="tap-direction ${t.dir}">${t.dir === 'in' ? 'IN' : 'OUT'}</div>
+      <div class="tap-detail">
+        <div>${escapeHtml(capitalize(t.sub))}</div>
+        <div class="sub">${[t.pos, t.opp].filter(Boolean).map(escapeHtml).join(' · ') || '—'}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* =========================================================
+   LIBRARY
+   ========================================================= */
+function getAllMoves() {
+  return [...CURRICULUM, ...state.customMoves];
+}
+
+function renderMovesOverview() {
+  const all = getAllMoves();
+  // State distribution
+  const dist = [0,0,0,0,0];
+  all.forEach(m => {
+    const s = state.moves[m.id]?.state ?? 0;
+    dist[s]++;
+  });
+
+  // Per-category coverage
+  const catData = CATEGORIES.map(cat => {
+    const moves = all.filter(m => m.cat === cat);
+    const buckets = [0,0,0,0,0];
+    moves.forEach(m => {
+      const s = state.moves[m.id]?.state ?? 0;
+      buckets[s]++;
+    });
+    const total = moves.length;
+    // weighted score 0..1
+    const weighted = total === 0 ? 0 :
+      ((buckets[1]*0.25) + (buckets[2]*0.5) + (buckets[3]*0.8) + (buckets[4]*1.0)) / total;
+    return { cat, total, buckets, weighted };
+  }).filter(c => c.total > 0);
+
+  // Strongest and weakest
+  const sorted = [...catData].sort((a,b) => b.weighted - a.weighted);
+  const strongest = sorted[0];
+  const weakest = sorted[sorted.length - 1];
+
+  const distHtml = `
+    <div class="state-distribution">
+      ${[0,1,2,3,4].map(i => `
+        <div class="state-bucket b${i}">
+          <div class="num">${dist[i]}</div>
+          <div class="lbl">${STATE_LABELS[i]}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  const coverageHtml = `
+    <div class="card-title" style="margin-bottom:10px;">Coverage by category</div>
+    <div class="coverage-list">
+      ${catData.map(c => {
+        const segs = c.buckets;
+        const tot = c.total;
+        return `
+          <div class="coverage-row">
+            <div class="top">
+              <span class="cat-name">${c.cat}</span>
+              <span class="cat-stats">${tot - segs[0]}/${tot} · ${Math.round(c.weighted*100)}%</span>
+            </div>
+            <div class="coverage-bar">
+              <div class="seg-1" style="width: ${(segs[1]/tot)*100}%"></div>
+              <div class="seg-2" style="width: ${(segs[2]/tot)*100}%"></div>
+              <div class="seg-3" style="width: ${(segs[3]/tot)*100}%"></div>
+              <div class="seg-4" style="width: ${(segs[4]/tot)*100}%"></div>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+
+  let summary = '';
+  if (strongest && weakest && strongest !== weakest) {
+    summary = `<div class="game-summary">Strongest area: <strong>${strongest.cat}</strong>. Most underdeveloped: <strong>${weakest.cat}</strong>. That's where the biggest gains are sitting.</div>`;
+  }
+
+  document.getElementById('movesOverview').innerHTML = distHtml + coverageHtml + summary;
+}
+
+function renderLibraryFilters() {
+  const filters = ['all', ...CATEGORIES];
+  document.getElementById('libraryFilters').innerHTML = filters.map(f => `
+    <div class="filter-chip ${state.filter === f ? 'active' : ''}" onclick="setFilter('${escapeHtml(f).replace(/'/g, "\\'")}')">${f === 'all' ? 'All' : f}</div>
+  `).join('');
+}
+function setFilter(f) {
+  state.filter = f;
+  saveState();
+  renderLibrary();
+  renderLibraryFilters();
+}
+
+function renderLibrary() {
+  const list = document.getElementById('libraryList');
+  const all = getAllMoves();
+  const cats = state.filter === 'all' ? CATEGORIES : [state.filter];
+  list.innerHTML = cats.map(cat => {
+    const moves = all.filter(m => m.cat === cat);
+    if (moves.length === 0) return '';
+    const counts = moves.reduce((a,m) => {
+      const s = state.moves[m.id]?.state ?? 0;
+      a.total++; if (s >= 1) a.started++; if (s >= 3) a.solid++;
+      return a;
+    }, { total: 0, started: 0, solid: 0 });
+    return `
+      <div class="category-group">
+        <div class="category-head">
+          <div class="category-title">${cat}</div>
+          <div class="category-count">${counts.started}/${counts.total} started · ${counts.solid} solid</div>
+        </div>
+        ${moves.map(m => {
+          const s = state.moves[m.id]?.state ?? 0;
+          return `
+            <div class="move-row" onclick="openMoveModal('${m.id}')">
+              <div class="move-name">${escapeHtml(m.name)}</div>
+              <div class="state-pill state-${s}">${STATE_LABELS[s]}</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }).join('');
+}
+
+let editingMoveId = null;
+function openMoveModal(mid) {
+  const move = getAllMoves().find(m => m.id === mid);
+  if (!move) return;
+  editingMoveId = mid;
+  document.getElementById('moveModalTitle').textContent = move.name;
+  document.getElementById('moveModalCat').textContent = move.cat;
+  const cur = state.moves[mid] || { state: 0, notes: '' };
+  document.getElementById('m_notes').value = cur.notes || '';
+  document.querySelectorAll('#moveStateSelector .state-opt').forEach(el => {
+    el.classList.remove('selected', 's0','s1','s2','s3','s4');
+    if (parseInt(el.dataset.s) === cur.state) {
+      el.classList.add('selected', 's' + cur.state);
+    }
+  });
+  openModal('moveModal');
+}
+document.querySelectorAll('#moveStateSelector .state-opt').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('#moveStateSelector .state-opt').forEach(e => e.classList.remove('selected', 's0','s1','s2','s3','s4'));
+    el.classList.add('selected', 's' + el.dataset.s);
+  });
+});
+function saveMove() {
+  const sel = document.querySelector('#moveStateSelector .state-opt.selected');
+  const newState = sel ? parseInt(sel.dataset.s) : 0;
+  state.moves[editingMoveId] = {
+    state: newState,
+    notes: document.getElementById('m_notes').value.trim(),
+  };
+  saveState();
+  closeModal('moveModal');
+  toast('Updated');
+  renderAll();
+}
+
+function openCustomMoveModal() {
+  document.getElementById('cm_name').value = '';
+  const sel = document.getElementById('cm_cat');
+  sel.innerHTML = CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+  openModal('customMoveModal');
+}
+function saveCustomMove() {
+  const name = document.getElementById('cm_name').value.trim();
+  const cat = document.getElementById('cm_cat').value;
+  if (!name) { toast('Name required'); return; }
+  const id = 'cm_' + Date.now();
+  state.customMoves.push({ id, cat, name });
+  state.moves[id] = { state: 0, notes: '' };
+  saveState();
+  closeModal('customMoveModal');
+  toast('Added');
+  renderAll();
+}
+
+/* =========================================================
+   STANDUP
+   ========================================================= */
+function renderStandup() {
+  const all = getAllMoves();
+  const standupMoves = all.filter(m => m.cat === 'Standup & wrestling');
+  document.getElementById('standupMoves').innerHTML = standupMoves.map(m => {
+    const s = state.moves[m.id]?.state ?? 0;
+    return `
+      <div class="move-row" onclick="openMoveModal('${m.id}')">
+        <div class="move-name">${escapeHtml(m.name)}</div>
+        <div class="state-pill state-${s}">${STATE_LABELS[s]}</div>
+      </div>
+    `;
+  }).join('');
+
+  // Stats: technique progression + sessions where standup was worked
+  const started = standupMoves.filter(m => (state.moves[m.id]?.state ?? 0) >= 1).length;
+  const solid = standupMoves.filter(m => (state.moves[m.id]?.state ?? 0) >= 2).length;
+
+  // Sessions where standup was worked (mined from session text)
+  const standupKeywords = /\b(takedown|single leg|double leg|snap down|trip|sprawl|wrestl|throw|td\b|standup|stand up|pummel|underhook|collar tie|arm drag|front headlock)/i;
+  const standupSessions = state.sessions.filter(s => {
+    const txt = `${s.taught || ''} ${s.drilled || ''} ${s.notes || ''}`;
+    return standupKeywords.test(txt);
+  }).length;
+
+  const totalSessions = state.sessions.length;
+  const pct = totalSessions > 0 ? Math.round((standupSessions / totalSessions) * 100) : 0;
+
+  document.getElementById('standupStarted').textContent = `${started}/${standupMoves.length}`;
+  document.getElementById('standupSolid').textContent = `${solid}/${standupMoves.length}`;
+  document.getElementById('standupSessions').textContent = standupSessions;
+  document.getElementById('standupPct').innerHTML = pct + '<span class="unit">%</span>';
+}
+
+/* =========================================================
+   FOCUS
+   ========================================================= */
+let editingFocusId = null;
+function renderFocus() {
+  const home = document.getElementById('focusListHome');
+  if (state.focus.length === 0) {
+    home.innerHTML = `
+      <div class="card">
+        <div style="font-size:13px; color: var(--ink-dim); margin-bottom:12px;">No active focus. Pick up to 3 things to deliberately work on.</div>
+        <button class="btn btn-block btn-sm" onclick="openFocusModal()">+ Add focus</button>
+      </div>
+    `;
+    return;
+  }
+  home.innerHTML = state.focus.map(f => `
+    <div class="focus-item">
+      <div class="focus-actions">
+        <button class="icon-btn" onclick="event.stopPropagation();editFocus('${f.id}')" aria-label="Edit">
+          <svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5l4 4L7 21l-4 1 1-4z"/></svg>
+        </button>
+        <button class="icon-btn" onclick="event.stopPropagation();deleteFocus('${f.id}')" aria-label="Archive">
+          <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+        </button>
+      </div>
+      <div class="theme">${escapeHtml(f.theme)}</div>
+      <div class="success">${escapeHtml(f.success || '')}</div>
+      <div class="attempt-row">
+        <div class="attempt-count"><strong>${f.attempts || 0}</strong>attempts in rolls</div>
+        <button class="attempt-btn" onclick="event.stopPropagation();bumpFocus('${f.id}')">+1 attempt</button>
+      </div>
+    </div>
+  `).join('') + (state.focus.length < 3 ? `<button class="btn btn-block btn-sm btn-ghost" onclick="openFocusModal()" style="margin-top:6px;">+ Add focus</button>` : '');
+}
+
+function openFocusModal() {
+  if (state.focus.length >= 3) {
+    toast('Max 3 active. Archive one first.');
+    return;
+  }
+  editingFocusId = null;
+  document.getElementById('focusModalTitle').textContent = 'New focus';
+  document.getElementById('f_theme').value = '';
+  document.getElementById('f_success').value = '';
+  openModal('focusModal');
+}
+function editFocus(id) {
+  const f = state.focus.find(x => x.id === id);
+  if (!f) return;
+  editingFocusId = id;
+  document.getElementById('focusModalTitle').textContent = 'Edit focus';
+  document.getElementById('f_theme').value = f.theme;
+  document.getElementById('f_success').value = f.success || '';
+  openModal('focusModal');
+}
+function saveFocus() {
+  const theme = document.getElementById('f_theme').value.trim();
+  const success = document.getElementById('f_success').value.trim();
+  if (!theme) { toast('Theme required'); return; }
+  if (editingFocusId) {
+    const f = state.focus.find(x => x.id === editingFocusId);
+    f.theme = theme; f.success = success;
+  } else {
+    state.focus.push({
+      id: 'f_' + Date.now(),
+      theme, success,
+      attempts: 0,
+      createdAt: Date.now(),
+    });
+  }
+  saveState();
+  closeModal('focusModal');
+  renderAll();
+}
+function bumpFocus(id) {
+  const f = state.focus.find(x => x.id === id);
+  if (!f) return;
+  f.attempts = (f.attempts || 0) + 1;
+  saveState();
+  toast('+1 attempt');
+  renderFocus();
+}
+function deleteFocus(id) {
+  if (!confirm('Archive this focus?')) return;
+  state.focus = state.focus.filter(f => f.id !== id);
+  saveState();
+  renderFocus();
+}
+
+/* =========================================================
+   BELT READINESS  (calibrated to blue belt)
+   ========================================================= */
+function calcReadiness() {
+  // Targets (typical white-to-blue benchmarks, weighted)
+  const TARGETS = {
+    matHours: 200,        // ~200 hours of mat time
+    spars: 400,           // ~400 individual rolls logged
+    monthsAtBelt: 18,     // ~1.5 years at white
+    coreCoverage: 0.6,    // 60% of curriculum at "drilling" or higher across categories
+    focusActivity: 5,     // 5 focus items completed-or-active counts
+  };
+
+  const totalMin = state.sessions.reduce((a,s) => a + (s.minutes || 0), 0);
+  const matHours = totalMin / 60;
+  const spars = state.sessions.reduce((a,s) => a + (s.spars || 0), 0);
+  const monthsAtBelt = (Date.now() - state.beltStartedAt) / (1000*60*60*24*30.44);
+  const all = getAllMoves();
+  const drilledOrUp = all.filter(m => (state.moves[m.id]?.state ?? 0) >= 2).length;
+  const coverage = drilledOrUp / all.length;
+  const focusActivity = state.focus.length;
+
+  const w = {
+    matHours: 0.30,
+    spars: 0.25,
+    monthsAtBelt: 0.10,
+    coreCoverage: 0.30,
+    focusActivity: 0.05,
+  };
+  const score =
+    Math.min(matHours / TARGETS.matHours, 1) * w.matHours +
+    Math.min(spars / TARGETS.spars, 1) * w.spars +
+    Math.min(monthsAtBelt / TARGETS.monthsAtBelt, 1) * w.monthsAtBelt +
+    Math.min(coverage / TARGETS.coreCoverage, 1) * w.coreCoverage +
+    Math.min(focusActivity / TARGETS.focusActivity, 1) * w.focusActivity;
+
+  return {
+    pct: Math.round(score * 100),
+    matHours, spars, monthsAtBelt, coverage, focusActivity, targets: TARGETS,
+  };
+}
+
+/* =========================================================
+   HOME / DASHBOARD
+   ========================================================= */
+function renderHome() {
+  const r = calcReadiness();
+  document.getElementById('beltFill').style.width = r.pct + '%';
+  document.getElementById('beltPct').textContent = r.pct + '%';
+
+  document.getElementById('beltDetail').innerHTML = `
+    <div class="row"><span class="k">Mat time</span><span class="v">${r.matHours.toFixed(1)}h / ${r.targets.matHours}h</span></div>
+    <div class="row"><span class="k">Total spars</span><span class="v">${r.spars} / ${r.targets.spars}</span></div>
+    <div class="row"><span class="k">Months at white</span><span class="v">${r.monthsAtBelt.toFixed(1)} / ${r.targets.monthsAtBelt}</span></div>
+    <div class="row"><span class="k">Curriculum coverage</span><span class="v">${Math.round(r.coverage*100)}%</span></div>
+  `;
+
+  // stripes
+  document.getElementById('beltStripes').innerHTML = [0,1,2,3].map(i => `<span class="stripe ${i < state.stripes ? 'on' : ''}"></span>`).join('');
+
+  // total mat time / spars
+  document.getElementById('statMatTime').innerHTML = r.matHours.toFixed(1) + '<span class="unit">h</span>';
+  document.getElementById('statSpars').textContent = r.spars;
+
+  // sessions this week
+  const now = new Date();
+  const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
+  const sessionsWk = state.sessions.filter(s => new Date(s.date) >= weekAgo).length;
+  document.getElementById('statSessionsWk').textContent = sessionsWk;
+
+  // streak: days since last
+  if (state.sessions.length === 0) {
+    document.getElementById('statStreak').innerHTML = '—';
+    document.getElementById('lastSessionSub').textContent = 'No sessions logged yet.';
+  } else {
+    const last = new Date(state.sessions[0].date);
+    const days = Math.floor((Date.now() - last.getTime()) / (1000*60*60*24));
+    document.getElementById('statStreak').innerHTML = days + '<span class="unit">d</span>';
+    document.getElementById('lastSessionSub').textContent =
+      days === 0 ? 'Trained today.' :
+      days === 1 ? 'Trained yesterday.' :
+      `Last session ${days} days ago.`;
+  }
+
+  // insights
+  renderInsights();
+}
+
+function renderInsights() {
+  const insights = [];
+  // pattern: top tap-by
+  const tapsIn = state.taps.filter(t => t.dir === 'in');
+  if (tapsIn.length >= 3) {
+    const counts = {};
+    tapsIn.forEach(t => counts[t.sub.toLowerCase()] = (counts[t.sub.toLowerCase()]||0)+1);
+    const top = Object.entries(counts).sort((a,b) => b[1]-a[1])[0];
+    if (top && top[1] >= 3) {
+      insights.push(`You've been caught by <strong>${capitalize(top[0])}</strong> ${top[1]} times. Worth making a focus.`);
+    }
+  }
+  // pattern: stuck position
+  const stuckMap = {};
+  state.sessions.slice(0, 12).forEach(s => {
+    if (s.stuck) {
+      const k = s.stuck.toLowerCase();
+      stuckMap[k] = (stuckMap[k] || 0) + 1;
+    }
+  });
+  const topStuck = Object.entries(stuckMap).sort((a,b) => b[1]-a[1])[0];
+  if (topStuck && topStuck[1] >= 2) {
+    insights.push(`You've been stuck in <strong>${capitalize(topStuck[0])}</strong> across ${topStuck[1]} recent sessions.`);
+  }
+  // pattern: too few sessions this week
+  const now = new Date();
+  const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
+  const sessionsWk = state.sessions.filter(s => new Date(s.date) >= weekAgo).length;
+  if (sessionsWk === 0 && state.sessions.length > 0) {
+    insights.push(`No sessions this week. The streak is the cheapest gain.`);
+  }
+  // pattern: focus untouched
+  state.focus.forEach(f => {
+    const ageDays = (Date.now() - f.createdAt) / (1000*60*60*24);
+    if (ageDays > 7 && (f.attempts || 0) === 0) {
+      insights.push(`Focus "<strong>${escapeHtml(f.theme)}</strong>" has zero attempts logged. Try it in rolls.`);
+    }
+  });
+
+  const list = document.getElementById('insightList');
+  if (insights.length === 0) {
+    list.innerHTML = `<div class="card-tight card" style="font-size:13px; color: var(--ink-dim);">No patterns to surface yet. Keep logging.</div>`;
+    return;
+  }
+  list.innerHTML = insights.slice(0, 3).map(i =>
+    `<div class="insight"><div class="dot"></div><div class="insight-text">${i}</div></div>`
+  ).join('');
+}
+
+/* =========================================================
+   WEEKLY REVIEW (auto-generated)
+   ========================================================= */
+function getCurrentWeekKey() {
+  const d = new Date();
+  // ISO week-ish: year + week number
+  const onejan = new Date(d.getFullYear(), 0, 1);
+  const week = Math.ceil((((d - onejan) / 86400000) + onejan.getDay() + 1) / 7);
+  return `${d.getFullYear()}-W${week}`;
+}
+
+function generateReview() {
+  const now = new Date();
+  const weekStart = new Date(now); weekStart.setDate(now.getDate() - 7);
+  const sessions = state.sessions.filter(s => new Date(s.date) >= weekStart);
+  const taps = state.taps.filter(t => t.ts >= weekStart.getTime());
+
+  if (sessions.length === 0) {
+    return {
+      summary: `No sessions logged this past week. The most reliable way to get to blue belt is to be on the mats consistently — even one or two sessions next week resets the trend.`,
+      stats: [],
+      patterns: [],
+      plan: `Get one session in early next week to break the gap. Don't try to make up volume — just get back on the mat.`,
+    };
+  }
+
+  const totalMin = sessions.reduce((a,s) => a + (s.minutes||0), 0);
+  const totalSpars = sessions.reduce((a,s) => a + (s.spars||0), 0);
+  const totalSparMin = sessions.reduce((a,s) => a + ((s.spars||0)*(s.sparMins||0)), 0);
+  const drillMin = totalMin - totalSparMin;
+
+  // recurring stuck position
+  const stuckMap = {};
+  sessions.forEach(s => {
+    if (s.stuck) {
+      const k = s.stuck.toLowerCase();
+      stuckMap[k] = (stuckMap[k]||0)+1;
+    }
+  });
+  const stuckTop = Object.entries(stuckMap).sort((a,b) => b[1]-a[1])[0];
+
+  // tap patterns
+  const tapInMap = {};
+  taps.filter(t => t.dir === 'in').forEach(t => {
+    const k = t.sub.toLowerCase();
+    tapInMap[k] = (tapInMap[k]||0)+1;
+  });
+  const tapInTop = Object.entries(tapInMap).sort((a,b) => b[1]-a[1])[0];
+
+  const tapOutMap = {};
+  taps.filter(t => t.dir === 'out').forEach(t => {
+    const k = t.sub.toLowerCase();
+    tapOutMap[k] = (tapOutMap[k]||0)+1;
+  });
+  const tapOutTop = Object.entries(tapOutMap).sort((a,b) => b[1]-a[1])[0];
+
+  // focus attempts this week (rough — tracks total, but at least gives a number)
+  const focusAttempts = state.focus.reduce((a,f) => a + (f.attempts||0), 0);
+
+  // build summary
+  const mood = sessions.filter(s => s.mood).map(s => s.mood);
+  const avgMood = mood.length ? (mood.reduce((a,b) => a+b, 0) / mood.length).toFixed(1) : null;
+
+  let summary = `${sessions.length} session${sessions.length === 1 ? '' : 's'} this week, ${(totalMin/60).toFixed(1)} hours on the mat, ${totalSpars} spars`;
+  if (drillMin > 0 && totalSparMin > 0) {
+    summary += `. Drilling vs rolling split: ~${Math.round(drillMin)}m / ${totalSparMin}m`;
+  }
+  summary += '.';
+
+  // patterns block
+  const patterns = [];
+  if (stuckTop && stuckTop[1] >= 2) {
+    patterns.push(`<strong>${capitalize(stuckTop[0])}</strong> came up as a stuck position ${stuckTop[1]} times. That's the priority drill for next week.`);
+  }
+  if (tapInTop && tapInTop[1] >= 2) {
+    patterns.push(`<strong>${capitalize(tapInTop[0])}</strong> caught you ${tapInTop[1]} times. Defence here.`);
+  }
+  if (tapOutTop && tapOutTop[1] >= 2) {
+    patterns.push(`You hit <strong>${capitalize(tapOutTop[0])}</strong> ${tapOutTop[1]} times — that's becoming reliable, double down.`);
+  }
+  if (focusAttempts === 0 && state.focus.length > 0) {
+    patterns.push(`No focus attempts logged this week. Pick one focus and try it deliberately in 3 rolls next week.`);
+  }
+  if (totalSpars >= 12) {
+    patterns.push(`Strong rolling volume (${totalSpars} spars). Rolling time is where blue belts are forged.`);
+  }
+  if (totalSpars < 4 && sessions.length >= 2) {
+    patterns.push(`Low rolling volume relative to mat time. Make sure you're getting live reps, not just drills.`);
+  }
+  if (avgMood && avgMood < 2.5) {
+    patterns.push(`Energy was low this week (avg ${avgMood}/5). Watch recovery — sleep, lifting load, BJJ load are stacking.`);
+  }
+
+  // plan
+  const planParts = [];
+  if (stuckTop && stuckTop[1] >= 2) planParts.push(`drill ${stuckTop[0]} — escapes and counters`);
+  if (tapInTop && tapInTop[1] >= 2) planParts.push(`spend a session on ${tapInTop[0]} defence`);
+  if (state.focus[0]) planParts.push(`hit at least 3 attempts of "${state.focus[0].theme}" in live rolls`);
+  if (planParts.length === 0) planParts.push(`maintain volume — 3 sessions, 8+ spars`);
+
+  const plan = `Next week: ${planParts.join('; ')}.`;
+
+  return { summary, patterns, plan, sessions: sessions.length, totalMin, totalSpars, totalSparMin };
+}
+
+function renderReview() {
+  const r = generateReview();
+  document.getElementById('reviewContent').innerHTML = `
+    <div class="review-hero">
+      <div class="review-week">Past 7 days</div>
+      <div class="review-summary">${r.summary}</div>
+    </div>
+
+    ${r.patterns && r.patterns.length ? `
+      <div class="card">
+        <div class="card-title">Patterns</div>
+        ${r.patterns.map(p => `<div class="insight"><div class="dot"></div><div class="insight-text">${p}</div></div>`).join('')}
+      </div>
+    ` : `
+      <div class="card">
+        <div class="card-title">Patterns</div>
+        <div style="font-size:13px; color: var(--ink-dim);">No clear patterns yet. Log more, they'll surface.</div>
+      </div>
+    `}
+
+    <div class="card">
+      <div class="card-title">Suggested plan</div>
+      <div style="font-size:14px; line-height:1.55;">${r.plan}</div>
+    </div>
+  `;
+}
+
+/* =========================================================
+   EXPORT / IMPORT
+   ========================================================= */
+function exportData() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `matlog-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Exported');
+}
+function importData() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json';
+  input.onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const parsed = JSON.parse(ev.target.result);
+        if (!parsed.moves || !parsed.sessions) throw new Error('Invalid backup');
+        if (!confirm('This will replace all current data. Continue?')) return;
+        state = parsed;
+        saveState();
+        renderAll();
+        toast('Imported');
+      } catch (err) {
+        toast('Invalid file');
+      }
+    };
+    reader.readAsText(f);
+  };
+  input.click();
+}
+
+/* =========================================================
+   UTILS
+   ========================================================= */
+function escapeHtml(s) {
+  return String(s||'').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+function capitalize(s) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+function formatDate(d) {
+  const dt = new Date(d);
+  return dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+/* =========================================================
+   RENDER ALL
+   ========================================================= */
+function renderAll() {
+  renderHome();
+  renderSessions();
+  renderMovesOverview();
+  renderLibraryFilters();
+  renderLibrary();
+  renderStandup();
+  renderTaps();
+  renderFocus();
+  renderReview();
+}
+
+renderAll();
+</script>
+</body>
+</html>
