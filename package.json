@@ -1,0 +1,8 @@
+{
+  "name": "matlog",
+  "private": true,
+  "description": "Personal BJJ training log (static web app, no build step)",
+  "scripts": {
+    "test": "node --test tests/app.test.mjs"
+  }
+}
