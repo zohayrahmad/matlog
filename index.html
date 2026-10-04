@@ -6,12 +6,17 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="theme-color" content="#0e0e0e" />
+<meta name="apple-mobile-web-app-title" content="Mat Log" />
 <title>Mat Log</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=JetBrains+Mono:wght@400;500;600&family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
+    color-scheme: dark;
     --bg: #0e0e0e;
     --bg-2: #161616;
     --bg-3: #1d1d1d;
@@ -68,6 +73,15 @@
     font-family: 'Geist', sans-serif;
     font-weight: 500;
   }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  button.belt-badge {
+    background: none; border: 0; padding: 4px 0; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .belt-chip {
+    width: 18px; height: 8px; border-radius: 2px; display: inline-block;
+    border: 1px solid var(--line-2);
+  }
   .belt-badge .stripes {
     display: inline-flex; gap: 2px; margin-left: 8px; vertical-align: middle;
   }
@@ -75,6 +89,7 @@
     width: 4px; height: 12px; background: var(--ink-faint); border-radius: 1px;
   }
   .belt-badge .stripe.on { background: var(--ink); }
+  .belt-badge .stripes:empty { display: none; }
 
   /* TABS */
   nav.tabs {
@@ -565,6 +580,25 @@
   }
   .settings-row button { flex: 1; }
 
+  .btn-danger { background: transparent; color: var(--accent); border: 1px solid var(--accent-dim); }
+  .session-card, .tap-item { cursor: pointer; }
+  .session-card:active, .tap-item:active { border-color: var(--line-2); }
+  .belt-picker { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .belt-opt {
+    background: var(--bg-3); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 2px 8px; text-align: center; cursor: pointer;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--ink-dim); font-weight: 500;
+  }
+  .belt-opt .swatch { display: block; height: 8px; border-radius: 2px; margin: 0 6px 6px; border: 1px solid var(--line-2); }
+  .belt-opt.selected { border-color: var(--accent); color: var(--ink); background: rgba(201,65,47,0.12); }
+  .data-note { font-size: 12px; color: var(--ink-dim); line-height: 1.55; }
+  .promo-list { margin-top: 16px; font-size: 12px; color: var(--ink-dim); }
+  .promo-list .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .promo-list .row span:last-child { font-family: 'JetBrains Mono', monospace; color: var(--ink-faint); }
+  .welcome { border-color: var(--accent-dim); }
+  .welcome p { font-size: 13px; color: var(--ink-dim); margin: 0 0 12px; line-height: 1.55; }
+
   hr.divider { border: 0; height: 1px; background: var(--line); margin: 18px 0; }
 </style>
 </head>
@@ -572,9 +606,15 @@
 
 <header class="app-header">
   <div class="brand">Mat<span class="accent">.</span>Log</div>
-  <div class="belt-badge">
-    White
-    <span class="stripes" id="beltStripes"></span>
+  <div class="header-right">
+    <button class="belt-badge" onclick="openSettingsModal()" aria-label="Belt and settings">
+      <span class="belt-chip" id="beltChip"></span>
+      <span id="beltName">White</span>
+      <span class="stripes" id="beltStripes"></span>
+    </button>
+    <button class="icon-btn" onclick="openSettingsModal()" aria-label="Settings">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
   </div>
 </header>
 
@@ -585,9 +625,11 @@
     <h1 class="screen-title">Today</h1>
     <div class="screen-sub" id="lastSessionSub">No sessions logged yet.</div>
 
+    <div id="welcomeCard"></div>
+
     <!-- Belt readiness -->
     <div class="card">
-      <div class="card-title">Blue belt readiness</div>
+      <div class="card-title" id="readinessTitle">Blue belt readiness</div>
       <div class="belt-progress">
         <div class="bar"><div class="fill" id="beltFill" style="width: 0%"></div></div>
         <div class="pct" id="beltPct">0%</div>
@@ -631,7 +673,7 @@
     <div class="screen-sub">Log every session. Two minutes, max.</div>
 
     <div class="add-bar">
-      <button class="btn btn-accent btn-block" onclick="openSessionModal()">+ Log session</button>
+      <button class="btn btn-accent btn-block" onclick="openSessionModal(null)">+ Log session</button>
     </div>
 
     <div id="sessionsList"></div>
@@ -697,7 +739,7 @@
       </div>
     </div>
 
-    <button class="btn btn-block" onclick="openTapModal()" style="margin: 14px 0;">+ Log a tap</button>
+    <button class="btn btn-block" onclick="openTapModal(null)" style="margin: 14px 0;">+ Log a tap</button>
 
     <div class="card">
       <div class="card-title">What's tapping you (top 5)</div>
@@ -718,12 +760,6 @@
     <div class="screen-sub">Auto-generated from your week. Read it Sunday evening.</div>
 
     <div id="reviewContent"></div>
-
-    <hr class="divider">
-    <div class="settings-row">
-      <button class="btn btn-ghost btn-sm" onclick="exportData()">Export data</button>
-      <button class="btn btn-ghost btn-sm" onclick="importData()">Import data</button>
-    </div>
   </section>
 
 </main>
@@ -760,7 +796,7 @@
 <div class="modal-bg" id="sessionModal" onclick="if(event.target===this)closeModal('sessionModal')">
   <div class="modal">
     <div class="modal-handle"></div>
-    <div class="modal-title">Log session</div>
+    <div class="modal-title" id="sessionModalTitle">Log session</div>
 
     <div class="row-2">
       <label class="field">
@@ -807,11 +843,11 @@
     <label class="field">
       <span class="lbl">Energy / mood</span>
       <div class="mood-row" id="moodRow">
-        <button class="mood-btn" data-mood="1">😩</button>
-        <button class="mood-btn" data-mood="2">😐</button>
-        <button class="mood-btn" data-mood="3">🙂</button>
-        <button class="mood-btn" data-mood="4">💪</button>
-        <button class="mood-btn" data-mood="5">🔥</button>
+        <button type="button" class="mood-btn" data-mood="1">😩</button>
+        <button type="button" class="mood-btn" data-mood="2">😐</button>
+        <button type="button" class="mood-btn" data-mood="3">🙂</button>
+        <button type="button" class="mood-btn" data-mood="4">💪</button>
+        <button type="button" class="mood-btn" data-mood="5">🔥</button>
       </div>
     </label>
 
@@ -824,6 +860,7 @@
       <button class="btn btn-ghost btn-block" onclick="closeModal('sessionModal')">Cancel</button>
       <button class="btn btn-accent btn-block" onclick="saveSession()">Save</button>
     </div>
+    <button class="btn btn-danger btn-block btn-sm" id="sessionDeleteBtn" onclick="deleteSession()" style="margin-top:10px;">Delete session</button>
   </div>
 </div>
 
@@ -831,7 +868,7 @@
 <div class="modal-bg" id="tapModal" onclick="if(event.target===this)closeModal('tapModal')">
   <div class="modal">
     <div class="modal-handle"></div>
-    <div class="modal-title">Log a tap</div>
+    <div class="modal-title" id="tapModalTitle">Log a tap</div>
 
     <div class="state-selector" style="grid-template-columns: 1fr 1fr; margin-bottom: 18px;">
       <div class="state-opt" id="dirOut" onclick="setTapDir('out')">I submitted</div>
@@ -857,6 +894,7 @@
       <button class="btn btn-ghost btn-block" onclick="closeModal('tapModal')">Cancel</button>
       <button class="btn btn-accent btn-block" onclick="saveTap()">Save tap</button>
     </div>
+    <button class="btn btn-danger btn-block btn-sm" id="tapDeleteBtn" onclick="deleteTap()" style="margin-top:10px;">Delete tap</button>
   </div>
 </div>
 
@@ -929,6 +967,47 @@
     <div class="row-2">
       <button class="btn btn-ghost btn-block" onclick="closeModal('focusModal')">Cancel</button>
       <button class="btn btn-accent btn-block" onclick="saveFocus()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-bg" id="settingsModal" onclick="if(event.target===this)closeModal('settingsModal')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Belt &amp; settings</div>
+
+    <div class="card-title">Current rank</div>
+    <div class="belt-picker" id="beltPicker"></div>
+
+    <label class="field" style="margin-top:14px;">
+      <span class="lbl">Stripes</span>
+      <div class="state-selector" id="stripePicker" style="margin-bottom:0;"></div>
+    </label>
+
+    <label class="field">
+      <span class="lbl">At this belt since</span>
+      <input type="date" id="set_beltSince">
+    </label>
+
+    <label class="field">
+      <span class="lbl">Started BJJ</span>
+      <input type="date" id="set_started">
+    </label>
+
+    <div class="row-2">
+      <button class="btn btn-ghost btn-block" onclick="closeModal('settingsModal')">Cancel</button>
+      <button class="btn btn-accent btn-block" onclick="saveSettings()">Save</button>
+    </div>
+
+    <div id="promotionHistory"></div>
+
+    <hr class="divider">
+    <div class="card-title">Your data</div>
+    <div class="data-note" id="dataNote"></div>
+    <div class="settings-row" style="margin-top:10px;">
+      <button class="btn btn-ghost btn-sm" onclick="exportData()">Back up</button>
+      <button class="btn btn-ghost btn-sm" onclick="importData()">Restore</button>
     </div>
   </div>
 </div>
@@ -1078,67 +1157,91 @@ const STATE_LABELS = ['Unknown', 'Learning', 'Drilling', 'In rolls', 'Reliable']
 /* =========================================================
    STORAGE
    ========================================================= */
-const STORAGE_KEY = 'matlog_v1';
-
-// Backfilled sessions: 35 sessions Sep 2025 -> May 2026
-// 28 standard (drilling 30-45m + 3-5 spars), 7 open mat (5-7 spars)
-const SEED_SESSIONS = [{"date":"2026-05-01","minutes":50,"spars":3,"sparMins":5,"type":"std"},{"date":"2026-04-29","minutes":42,"spars":6,"sparMins":5,"type":"open"},{"date":"2026-04-28","minutes":51,"spars":6,"sparMins":7,"type":"open"},{"date":"2026-04-25","minutes":55,"spars":4,"sparMins":5,"type":"std"},{"date":"2026-04-20","minutes":41,"spars":5,"sparMins":7,"type":"open"},{"date":"2026-04-18","minutes":50,"spars":4,"sparMins":5,"type":"std"},{"date":"2026-04-16","minutes":60,"spars":4,"sparMins":5,"type":"std"},{"date":"2026-04-15","minutes":69,"spars":4,"sparMins":6,"type":"std"},{"date":"2026-04-10","minutes":54,"spars":4,"sparMins":6,"type":"std"},{"date":"2026-04-04","minutes":64,"spars":4,"sparMins":6,"type":"std"},{"date":"2026-04-03","minutes":54,"spars":4,"sparMins":6,"type":"std"},{"date":"2026-03-30","minutes":65,"spars":5,"sparMins":5,"type":"std"},{"date":"2026-03-23","minutes":69,"spars":4,"sparMins":6,"type":"std"},{"date":"2026-03-18","minutes":59,"spars":4,"sparMins":6,"type":"std"},{"date":"2026-03-12","minutes":59,"spars":4,"sparMins":6,"type":"std"},{"date":"2026-03-10","minutes":60,"spars":5,"sparMins":6,"type":"std"},{"date":"2026-03-09","minutes":42,"spars":6,"sparMins":5,"type":"open"},{"date":"2026-02-23","minutes":41,"spars":5,"sparMins":7,"type":"open"},{"date":"2026-02-18","minutes":64,"spars":4,"sparMins":6,"type":"std"},{"date":"2026-02-16","minutes":54,"spars":4,"sparMins":6,"type":"std"},{"date":"2026-02-11","minutes":60,"spars":3,"sparMins":5,"type":"std"},{"date":"2026-02-07","minutes":59,"spars":4,"sparMins":6,"type":"std"},{"date":"2026-01-18","minutes":55,"spars":4,"sparMins":5,"type":"std"},{"date":"2026-01-14","minutes":60,"spars":5,"sparMins":6,"type":"std"},{"date":"2026-01-11","minutes":38,"spars":5,"sparMins":6,"type":"open"},{"date":"2026-01-04","minutes":59,"spars":4,"sparMins":6,"type":"std"},{"date":"2025-12-27","minutes":69,"spars":4,"sparMins":6,"type":"std"},{"date":"2025-11-17","minutes":58,"spars":3,"sparMins":6,"type":"std"},{"date":"2025-11-07","minutes":65,"spars":5,"sparMins":6,"type":"std"},{"date":"2025-10-27","minutes":60,"spars":5,"sparMins":5,"type":"std"},{"date":"2025-10-22","minutes":75,"spars":5,"sparMins":6,"type":"std"},{"date":"2025-10-18","minutes":65,"spars":4,"sparMins":5,"type":"std"},{"date":"2025-10-13","minutes":33,"spars":5,"sparMins":5,"type":"open"},{"date":"2025-09-20","minutes":54,"spars":4,"sparMins":6,"type":"std"},{"date":"2025-09-10","minutes":50,"spars":3,"sparMins":5,"type":"std"}];
-
-function buildSeedSessions() {
-  return SEED_SESSIONS.map((s, i) => ({
-    id: `seed_${i}`,
-    date: s.date,
-    minutes: s.minutes,
-    spars: s.spars,
-    sparMins: s.sparMins,
-    taught: s.type === 'open' ? 'Open mat' : '',
-    drilled: '',
-    stuck: '',
-    fix: '',
-    mood: 0,
-    notes: s.type === 'open' ? 'Open mat — sparring only.' : '',
-  }));
-}
-
-const BELT_START_DATE = new Date('2025-09-10').getTime();
+const STORAGE_KEY = 'matlog_v1';          // unchanged on purpose: existing data keeps loading
+const SCHEMA_VERSION = 2;
+const BELTS = [
+  { id: 'white',  name: 'White',  color: '#f4f1ea' },
+  { id: 'blue',   name: 'Blue',   color: '#2f5fa8' },
+  { id: 'purple', name: 'Purple', color: '#6a3d9a' },
+  { id: 'brown',  name: 'Brown',  color: '#6b4226' },
+  { id: 'black',  name: 'Black',  color: '#111111' },
+];
 
 const defaultState = () => ({
-  startedAt: BELT_START_DATE,
-  beltStartedAt: BELT_START_DATE,
+  schemaVersion: SCHEMA_VERSION,
+  startedAt: Date.now(),
+  beltStartedAt: Date.now(),
   belt: 'white',
   stripes: 0,
+  promotions: [],
   moves: CURRICULUM.reduce((acc, m) => { acc[m.id] = { state: 0, notes: '' }; return acc; }, {}),
   customMoves: [],
-  sessions: buildSeedSessions(),
+  sessions: [],
   taps: [],
   focus: [],
   reviews: [],
   filter: 'all',
+  lastBackupAt: null,
 });
+
+// Bring any older save (or imported backup) up to the current shape.
+// Only ever adds missing fields — never drops existing data.
+function migrate(d) {
+  const base = defaultState();
+  if (!d.moves) d.moves = {};
+  CURRICULUM.forEach(m => {
+    if (!d.moves[m.id]) d.moves[m.id] = { state: 0, notes: '' };
+  });
+  ['sessions', 'taps', 'focus', 'reviews', 'customMoves', 'promotions'].forEach(k => {
+    if (!Array.isArray(d[k])) d[k] = [];
+  });
+  if (!d.startedAt) d.startedAt = base.startedAt;
+  if (!d.beltStartedAt) d.beltStartedAt = d.startedAt;
+  if (!d.belt) d.belt = 'white';
+  if (typeof d.stripes !== 'number') d.stripes = 0;
+  if (!d.filter) d.filter = 'all';
+  if (d.lastBackupAt === undefined) d.lastBackupAt = null;
+  d.schemaVersion = SCHEMA_VERSION;
+  sortSessions(d);
+  return d;
+}
+
+function sortSessions(d) {
+  // newest first; ties broken by creation id so same-day sessions stay stable
+  d.sessions.sort((x, y) => (y.date || '').localeCompare(x.date || '') || String(y.id).localeCompare(String(x.id)));
+}
 
 let state = loadState();
 
 function loadState() {
+  let raw = null;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultState();
-    const parsed = JSON.parse(raw);
-    // patch in any new curriculum moves not previously stored
-    CURRICULUM.forEach(m => {
-      if (!parsed.moves[m.id]) parsed.moves[m.id] = { state: 0, notes: '' };
-    });
-    if (!parsed.focus) parsed.focus = [];
-    if (!parsed.reviews) parsed.reviews = [];
-    if (!parsed.customMoves) parsed.customMoves = [];
-    if (!parsed.beltStartedAt) parsed.beltStartedAt = parsed.startedAt || Date.now();
-    return parsed;
+    return migrate(JSON.parse(raw));
   } catch (e) {
+    // Never silently throw away unreadable data — park it so it can be recovered.
+    try { if (raw) localStorage.setItem(STORAGE_KEY + '_unreadable_' + Date.now(), raw); } catch (_) {}
     return defaultState();
   }
 }
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    toast('Could not save — storage full or blocked');
+  }
+}
+
+// Ask the browser not to evict our storage (helps on iOS/Android).
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().catch(() => {});
+}
+
+// Offline support + installable app. Only works when served over http(s).
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
 
 /* =========================================================
@@ -1171,17 +1274,23 @@ function toast(msg) {
 /* =========================================================
    SESSION
    ========================================================= */
-function openSessionModal() {
-  document.getElementById('s_date').value = new Date().toISOString().slice(0,10);
-  document.getElementById('s_minutes').value = '';
-  document.getElementById('s_spars').value = '';
-  document.getElementById('s_sparMins').value = '';
-  document.getElementById('s_taught').value = '';
-  document.getElementById('s_drilled').value = '';
-  document.getElementById('s_stuck').value = '';
-  document.getElementById('s_fix').value = '';
-  document.getElementById('s_notes').value = '';
-  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+let editingSessionId = null;
+const SESSION_TEXT_FIELDS = ['taught', 'drilled', 'stuck', 'fix', 'notes'];
+
+function openSessionModal(id) {
+  const existing = id ? state.sessions.find(s => s.id === id) : null;
+  editingSessionId = existing ? existing.id : null;
+  document.getElementById('sessionModalTitle').textContent = existing ? 'Edit session' : 'Log session';
+  document.getElementById('sessionDeleteBtn').style.display = existing ? '' : 'none';
+  document.getElementById('s_date').value = existing ? existing.date : todayISO();
+  document.getElementById('s_minutes').value = existing ? existing.minutes : '';
+  document.getElementById('s_spars').value = existing && existing.spars ? existing.spars : '';
+  document.getElementById('s_sparMins').value = existing && existing.sparMins ? existing.sparMins : '';
+  SESSION_TEXT_FIELDS.forEach(f => {
+    document.getElementById('s_' + f).value = existing ? (existing[f] || '') : '';
+  });
+  document.querySelectorAll('.mood-btn').forEach(b =>
+    b.classList.toggle('selected', !!existing && parseInt(b.dataset.mood) === existing.mood));
   openModal('sessionModal');
 }
 
@@ -1199,23 +1308,35 @@ function saveSession() {
     toast('Date and minutes required');
     return;
   }
-  const session = {
-    id: 'ses_' + Date.now(),
+  const fields = {
     date,
     minutes,
     spars: parseInt(document.getElementById('s_spars').value) || 0,
     sparMins: parseInt(document.getElementById('s_sparMins').value) || 0,
-    taught: document.getElementById('s_taught').value.trim(),
-    drilled: document.getElementById('s_drilled').value.trim(),
-    stuck: document.getElementById('s_stuck').value.trim(),
-    fix: document.getElementById('s_fix').value.trim(),
     mood: parseInt(document.querySelector('.mood-btn.selected')?.dataset.mood) || 0,
-    notes: document.getElementById('s_notes').value.trim(),
   };
-  state.sessions.unshift(session);
+  SESSION_TEXT_FIELDS.forEach(f => { fields[f] = document.getElementById('s_' + f).value.trim(); });
+
+  if (editingSessionId) {
+    const s = state.sessions.find(x => x.id === editingSessionId);
+    Object.assign(s, fields);   // keeps id and any fields this form doesn't know about
+  } else {
+    state.sessions.push({ id: 'ses_' + Date.now(), ...fields });
+  }
+  sortSessions(state);
   saveState();
   closeModal('sessionModal');
-  toast('Session logged');
+  toast(editingSessionId ? 'Session updated' : 'Session logged');
+  renderAll();
+}
+
+function deleteSession() {
+  if (!editingSessionId) return;
+  if (!confirm('Delete this session? This can\'t be undone.')) return;
+  state.sessions = state.sessions.filter(s => s.id !== editingSessionId);
+  saveState();
+  closeModal('sessionModal');
+  toast('Session deleted');
   renderAll();
 }
 
@@ -1231,7 +1352,7 @@ function renderSessions() {
     if (s.drilled) tags.push(`<span class="tag">drilled: ${escapeHtml(s.drilled)}</span>`);
     if (s.stuck) tags.push(`<span class="tag stuck">stuck: ${escapeHtml(s.stuck)}</span>`);
     return `
-      <div class="session-card">
+      <div class="session-card" onclick="openSessionModal('${s.id}')">
         <div class="session-head">
           <div class="session-date">${formatDate(s.date)}</div>
           <div class="session-meta">${s.minutes}m · ${s.spars} spars</div>
@@ -1248,11 +1369,16 @@ function renderSessions() {
    TAPS
    ========================================================= */
 let pendingTapDir = 'in';
-function openTapModal() {
-  document.getElementById('t_sub').value = '';
-  document.getElementById('t_pos').value = '';
-  document.getElementById('t_opp').value = '';
-  setTapDir('in');
+let editingTapId = null;
+function openTapModal(id) {
+  const existing = id ? state.taps.find(t => t.id === id) : null;
+  editingTapId = existing ? existing.id : null;
+  document.getElementById('tapModalTitle').textContent = existing ? 'Edit tap' : 'Log a tap';
+  document.getElementById('tapDeleteBtn').style.display = existing ? '' : 'none';
+  document.getElementById('t_sub').value = existing ? existing.sub : '';
+  document.getElementById('t_pos').value = existing ? (existing.pos || '') : '';
+  document.getElementById('t_opp').value = existing ? (existing.opp || '') : '';
+  setTapDir(existing ? existing.dir : 'in');
   openModal('tapModal');
 }
 function setTapDir(dir) {
@@ -1265,17 +1391,29 @@ function setTapDir(dir) {
 function saveTap() {
   const sub = document.getElementById('t_sub').value.trim();
   if (!sub) { toast('Submission required'); return; }
-  state.taps.unshift({
-    id: 'tap_' + Date.now(),
+  const fields = {
     dir: pendingTapDir,
     sub,
     pos: document.getElementById('t_pos').value.trim(),
     opp: document.getElementById('t_opp').value.trim(),
-    ts: Date.now(),
-  });
+  };
+  if (editingTapId) {
+    Object.assign(state.taps.find(t => t.id === editingTapId), fields);
+  } else {
+    state.taps.unshift({ id: 'tap_' + Date.now(), ...fields, ts: Date.now() });
+  }
   saveState();
   closeModal('tapModal');
-  toast('Tap logged');
+  toast(editingTapId ? 'Tap updated' : 'Tap logged');
+  renderAll();
+}
+function deleteTap() {
+  if (!editingTapId) return;
+  if (!confirm('Delete this tap?')) return;
+  state.taps = state.taps.filter(t => t.id !== editingTapId);
+  saveState();
+  closeModal('tapModal');
+  toast('Tap deleted');
   renderAll();
 }
 
@@ -1316,7 +1454,7 @@ function renderTaps() {
     return;
   }
   list.innerHTML = state.taps.slice(0, 25).map(t => `
-    <div class="tap-item">
+    <div class="tap-item" onclick="openTapModal('${t.id}')">
       <div class="tap-direction ${t.dir}">${t.dir === 'in' ? 'IN' : 'OUT'}</div>
       <div class="tap-detail">
         <div>${escapeHtml(capitalize(t.sub))}</div>
@@ -1673,6 +1811,101 @@ function calcReadiness() {
 }
 
 /* =========================================================
+   BELT & SETTINGS
+   ========================================================= */
+function beltInfo(id = state.belt) {
+  return BELTS.find(b => b.id === id) || BELTS[0];
+}
+
+function renderBeltBadge() {
+  const b = beltInfo();
+  document.getElementById('beltName').textContent = b.name;
+  document.getElementById('beltChip').style.background = b.color;
+  document.getElementById('beltStripes').innerHTML = state.stripes > 0
+    ? [0,1,2,3].map(i => `<span class="stripe ${i < state.stripes ? 'on' : ''}"></span>`).join('')
+    : '';
+}
+
+let pendingBelt = 'white';
+let pendingStripes = 0;
+function openSettingsModal() {
+  pendingBelt = state.belt;
+  pendingStripes = state.stripes;
+  document.getElementById('set_beltSince').value = toISODate(state.beltStartedAt);
+  document.getElementById('set_started').value = toISODate(state.startedAt);
+  renderSettingsPickers();
+
+  const promos = [...state.promotions].sort((a,b) => b.date.localeCompare(a.date));
+  document.getElementById('promotionHistory').innerHTML = promos.length ? `
+    <div class="promo-list">
+      <div class="card-title" style="margin-top:6px;">Promotion history</div>
+      ${promos.map(p => `<div class="row"><span>${beltInfo(p.belt).name}${p.stripes ? ` · ${p.stripes} stripe${p.stripes > 1 ? 's' : ''}` : ''}</span><span>${formatDate(p.date)}</span></div>`).join('')}
+    </div>` : '';
+
+  const last = state.lastBackupAt;
+  document.getElementById('dataNote').innerHTML =
+    `Saved on this device automatically. ${state.sessions.length} sessions, ${state.taps.length} taps. ` +
+    (last ? `Last backup ${Math.floor((Date.now() - last) / 86400000)} days ago.` : 'No backup made from this device yet.') +
+    ` A backup is only insurance against losing your phone — you don't need one to get app updates.`;
+  openModal('settingsModal');
+}
+
+function renderSettingsPickers() {
+  document.getElementById('beltPicker').innerHTML = BELTS.map(b => `
+    <div class="belt-opt ${b.id === pendingBelt ? 'selected' : ''}" onclick="pickBelt('${b.id}')">
+      <span class="swatch" style="background:${b.color}"></span>${b.name}
+    </div>`).join('');
+  document.getElementById('stripePicker').innerHTML = [0,1,2,3,4].map(n => `
+    <div class="state-opt ${n === pendingStripes ? 'selected s3' : ''}" onclick="pickStripes(${n})">${n}</div>`).join('');
+}
+function pickBelt(id) {
+  if (id !== pendingBelt) {
+    pendingStripes = 0;
+    // a new belt usually means "promoted today"
+    if (id !== state.belt) document.getElementById('set_beltSince').value = todayISO();
+    else document.getElementById('set_beltSince').value = toISODate(state.beltStartedAt);
+  }
+  pendingBelt = id;
+  renderSettingsPickers();
+}
+function pickStripes(n) { pendingStripes = n; renderSettingsPickers(); }
+
+function saveSettings() {
+  const since = document.getElementById('set_beltSince').value;
+  const started = document.getElementById('set_started').value;
+  const rankChanged = pendingBelt !== state.belt || pendingStripes !== state.stripes;
+  if (rankChanged) {
+    state.promotions.push({
+      date: pendingBelt !== state.belt && since ? since : todayISO(),
+      belt: pendingBelt,
+      stripes: pendingStripes,
+    });
+  }
+  state.belt = pendingBelt;
+  state.stripes = pendingStripes;
+  if (since) state.beltStartedAt = fromISODate(since);
+  if (started) state.startedAt = fromISODate(started);
+  saveState();
+  closeModal('settingsModal');
+  toast(rankChanged ? 'Rank updated' : 'Saved');
+  renderAll();
+}
+
+function renderWelcome() {
+  const el = document.getElementById('welcomeCard');
+  if (state.sessions.length > 0) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div class="card welcome">
+      <div class="card-title">Welcome</div>
+      <p>Moving from another device or an older copy of Mat Log? Restore your backup file and everything comes back — sessions, taps, moves and focus.</p>
+      <div class="row-2">
+        <button class="btn btn-accent btn-block btn-sm" onclick="importData()">Restore backup</button>
+        <button class="btn btn-ghost btn-block btn-sm" onclick="openSessionModal(null)">Log first session</button>
+      </div>
+    </div>`;
+}
+
+/* =========================================================
    HOME / DASHBOARD
    ========================================================= */
 function renderHome() {
@@ -1683,12 +1916,14 @@ function renderHome() {
   document.getElementById('beltDetail').innerHTML = `
     <div class="row"><span class="k">Mat time</span><span class="v">${r.matHours.toFixed(1)}h / ${r.targets.matHours}h</span></div>
     <div class="row"><span class="k">Total spars</span><span class="v">${r.spars} / ${r.targets.spars}</span></div>
-    <div class="row"><span class="k">Months at white</span><span class="v">${r.monthsAtBelt.toFixed(1)} / ${r.targets.monthsAtBelt}</span></div>
+    <div class="row"><span class="k">Months at ${beltInfo().name.toLowerCase()}</span><span class="v">${r.monthsAtBelt.toFixed(1)} / ${r.targets.monthsAtBelt}</span></div>
     <div class="row"><span class="k">Curriculum coverage</span><span class="v">${Math.round(r.coverage*100)}%</span></div>
   `;
 
-  // stripes
-  document.getElementById('beltStripes').innerHTML = [0,1,2,3].map(i => `<span class="stripe ${i < state.stripes ? 'on' : ''}"></span>`).join('');
+  renderBeltBadge();
+  const next = BELTS[BELTS.findIndex(b => b.id === state.belt) + 1];
+  document.getElementById('readinessTitle').textContent = next ? `${next.name} belt readiness` : 'Progress';
+  renderWelcome();
 
   // total mat time / spars
   document.getElementById('statMatTime').innerHTML = r.matHours.toFixed(1) + '<span class="unit">h</span>';
@@ -1902,34 +2137,55 @@ function renderReview() {
 /* =========================================================
    EXPORT / IMPORT
    ========================================================= */
-function exportData() {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
+async function exportData() {
+  const name = `matlog-backup-${todayISO()}.json`;
+  const json = JSON.stringify(state, null, 2);
+  const markDone = () => { state.lastBackupAt = Date.now(); saveState(); toast('Backed up'); };
+
+  // On phones, the share sheet lets you save straight to Files / iCloud / Drive.
+  try {
+    const file = new File([json], name, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'Mat Log backup' });
+      markDone();
+      return;
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;   // user closed the share sheet
+  }
+  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
   const a = document.createElement('a');
-  a.href = url;
-  a.download = `matlog-backup-${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  toast('Exported');
+  a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  markDone();
 }
+
 function importData() {
   const input = document.createElement('input');
-  input.type = 'file'; input.accept = '.json';
+  input.type = 'file'; input.accept = '.json,application/json';
   input.onchange = e => {
     const f = e.target.files[0]; if (!f) return;
     const reader = new FileReader();
     reader.onload = ev => {
+      let parsed;
       try {
-        const parsed = JSON.parse(ev.target.result);
-        if (!parsed.moves || !parsed.sessions) throw new Error('Invalid backup');
-        if (!confirm('This will replace all current data. Continue?')) return;
-        state = parsed;
-        saveState();
-        renderAll();
-        toast('Imported');
+        parsed = JSON.parse(ev.target.result);
+        if (!parsed.moves || !Array.isArray(parsed.sessions)) throw new Error('Invalid backup');
       } catch (err) {
-        toast('Invalid file');
+        toast('Not a Mat Log backup file');
+        return;
       }
+      const msg = state.sessions.length
+        ? `Replace current data (${state.sessions.length} sessions) with this backup (${parsed.sessions.length} sessions)?`
+        : `Restore ${parsed.sessions.length} sessions from this backup?`;
+      if (!confirm(msg)) return;
+      // keep what was here, just in case
+      try { localStorage.setItem(STORAGE_KEY + '_before_restore', JSON.stringify(state)); } catch (_) {}
+      state = migrate(parsed);
+      saveState();
+      closeModal('settingsModal');
+      renderAll();
+      toast(`Restored ${state.sessions.length} sessions`);
     };
     reader.readAsText(f);
   };
@@ -1945,8 +2201,18 @@ function escapeHtml(s) {
 function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
+// Local-time date helpers (toISOString() is UTC and gives the wrong day late at night)
+function toISODate(ms) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function todayISO() { return toISODate(Date.now()); }
+function fromISODate(str) {
+  const [y, m, d] = str.split('-').map(Number);
+  return new Date(y, m - 1, d).getTime();
+}
 function formatDate(d) {
-  const dt = new Date(d);
+  const dt = /^\d{4}-\d{2}-\d{2}$/.test(d) ? new Date(fromISODate(d)) : new Date(d);
   return dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
