@@ -16,18 +16,33 @@ function sessionCardHTML(s) {
       <div style="min-width:0">
         <div class="top">
           ${s.type !== 'class' ? `<span class="tag type">${type ? type.label : s.type}</span>` : ''}
-          ${s.gi === 'gi' ? '<span class="tag">Gi</span>' : ''}
           <span class="meta">${s.minutes} min · ${s.spars || 0} rounds</span>
           ${s.feel ? `<span class="feel-mini" title="${FEEL[s.feel].label}">${[1, 2, 3, 4].map(i => `<i class="${i <= s.feel ? 'f' : ''}"></i>`).join('')}</span>` : ''}
         </div>
         <div class="covered">${escapeHtml(title)}</div>
         ${note ? `<div class="note">${escapeHtml(note)}</div>` : ''}
+        ${sessionEvidenceLine(s)}
         ${(s.workOn || []).length || s.injury ? `<div class="tags">
           ${(s.workOn || []).map(t => `<span class="tag work">${tagLabel(t)}</span>`).join('')}
           ${s.injury ? `<span class="tag inj">${escapeHtml(s.injury)}</span>` : ''}
         </div>` : ''}
       </div>
     </button>`;
+}
+
+function sessionEvidenceLine(s) {
+  const parts = [];
+  ROLL_LEVELS.forEach(l => {
+    const r = (s.rolls || {})[l.id];
+    if (!r) return;
+    parts.push(`vs ${l.short.toLowerCase()} ${r.win || 0}-${r.even || 0}-${r.loss || 0}`);
+  });
+  if ((s.positional || []).length) {
+    const w = s.positional.filter(p => p.result === 'win').length;
+    parts.push(`positional ${w}/${s.positional.length}`);
+  }
+  if ((s.partners || []).length) parts.push(s.partners.slice(0, 3).map(escapeHtml).join(', '));
+  return parts.length ? `<div class="note">${parts.join(' · ')}</div>` : '';
 }
 
 function logListHTML() {
@@ -277,6 +292,17 @@ function deltaHTML(cur, prev, fmt = v => v) {
   return `<span class="delta ${d > 0 ? 'up' : 'down'}">${d > 0 ? '+' : '−'}${fmt(Math.abs(d))}</span>`;
 }
 
+function reviewEvidenceHTML(r) {
+  const rl = ROLL_LEVELS.filter(l => r.rolls[l.id].n);
+  const ps = POSITIONAL.filter(p => r.positional[p.id]);
+  if (!rl.length && !ps.length && !r.drills) return '';
+  return `<div class="card"><div class="card-title">Live evidence</div>
+    ${rl.map(l => { const x = r.rolls[l.id]; return `<div class="row between small" style="padding:4px 0"><span>vs ${l.label.toLowerCase()}</span><span><b style="color:var(--green)">${x.win}W</b> ${x.even}E <b style="color:var(--accent)">${x.loss}L</b></span></div>`; }).join('')}
+    ${ps.map(p => { const x = r.positional[p.id]; return `<div class="row between small" style="padding:4px 0"><span>${p.label}</span><span>${x.win}/${x.n} ${p.win.toLowerCase()}</span></div>`; }).join('')}
+    ${r.drills ? `<div class="small muted" style="margin-top:6px">${r.drills} drill session${r.drills > 1 ? 's' : ''} logged.</div>` : ''}
+  </div>`;
+}
+
 function renderReview() {
   const r = buildReview(ui.reviewMode, ui.reviewAnchor);
   const isCurrent = r.from <= todayISO() && todayISO() < r.to;
@@ -327,6 +353,8 @@ function renderReview() {
         <div><div class="small muted" style="margin-bottom:6px">I caught · ${r.taps.outCount}</div>${hbarsHTML(r.taps.caught.map(([k, n]) => [subLabel(k), n]), { cls: 'green' })}</div>
       </div></div>` : ''}
 
+    ${reviewEvidenceHTML(r)}
+
     ${r.focus.length ? `<div class="card"><div class="card-title">Focus</div>
       ${r.focus.map(f => `<div class="row between" style="padding:6px 0; font-size:13px"><span style="flex:1">${escapeHtml(f.f.theme)}</span><span class="muted">${f.tried} tried · <b style="color:var(--green)">${f.worked} worked</b></span></div>`).join('')}</div>` : ''}
 
@@ -355,10 +383,42 @@ function pillarDetail(p, r) {
   switch (p.id) {
     case 'time': return `${r.hours.toFixed(0)}h of ~${READINESS.hoursTarget}h, ${r.rounds} of ~${READINESS.roundsTarget} live rounds`;
     case 'skill': return `Your ratings across ${READINESS.domains.reduce((a, d) => a + d.moves.length, 0)} blue-belt core moves`;
-    case 'live': return r.ratedCount >= 3 ? `Rolls lately: ${feelWord(r.avgFeel)} (last ${r.ratedCount} rated sessions)` : 'Rate how rolls went when you log. Needs 3 sessions; until then the other pillars carry the weight.';
+    case 'live': {
+      const n = Object.values(r.rolls).reduce((a, x) => a + x.n, 0);
+      const parts = [];
+      if (n) parts.push(`${n} logged round${n > 1 ? 's' : ''} by level${n < 6 ? ' (6+ needed)' : ''}`);
+      if (r.ratedCount) parts.push(`rolls felt ${feelWord(r.avgFeel)} (${r.ratedCount} rated${r.ratedCount < 3 ? ', 3+ needed' : ''})`);
+      return parts.length ? capitalize(parts.join(' · ')) + '.' : 'Log who you rolled with, or rate how rolls went. Until then the other pillars carry the weight.';
+    }
     case 'consistency': return `${r.perWeek12.toFixed(1)} sessions/week over the last 12 weeks (2+ is the norm)`;
   }
   return '';
+}
+
+function liveEvidenceHTML(r) {
+  const pos = positionalStats(recentSessions(120));
+  const posRows = POSITIONAL.filter(p => pos[p.id]);
+  const rollRows = ROLL_LEVELS.filter(l => r.rolls[l.id].n);
+  if (!posRows.length && !rollRows.length) {
+    return `<div class="section-head"><h2>Live evidence</h2></div>
+      <div class="card small muted">Log <b>who you rolled with</b> and <b>positional rounds</b> (both optional, in the log sheet) and real results start replacing self-ratings here.</div>`;
+  }
+  return `<div class="section-head"><h2>Live evidence</h2></div>
+    ${rollRows.length ? `<div class="card"><div class="card-title">Rolls by level · last 90 days</div>
+      ${rollRows.map(l => {
+        const x = r.rolls[l.id];
+        return `<div class="hbar" data-tip="${x.win} won · ${x.even} even · ${x.loss} lost. Blue-belt benchmark ~${Math.round(ROLL_BENCHMARKS[l.id] * 100)}%">
+          <span>${l.label} <span class="muted small">${x.n} rounds</span></span><span class="val">${Math.round(x.score * 100)}%</span>
+          ${meterHTML(x.score, x.score >= ROLL_BENCHMARKS[l.id] ? 'green' : '')}</div>`;
+      }).join('')}
+      <div class="small muted">Vs higher belts, holding them even counts as success.</div></div>` : ''}
+    ${posRows.length ? `<div class="card"><div class="card-title">Positional rounds · last 120 days</div>
+      ${posRows.map(p => {
+        const x = pos[p.id];
+        return `<div class="hbar" data-tip="${x.win} ${p.win.toLowerCase()} · ${x.even} stalemate · ${x.loss} lost. Benchmark ~${Math.round(p.benchmark * 100)}%">
+          <span>${p.label} <span class="muted small">${x.n} reps</span></span><span class="val">${Math.round(x.rate * 100)}%</span>
+          ${meterHTML(x.rate, x.rate >= p.benchmark ? 'green' : '')}</div>`;
+      }).join('')}</div>` : ''}`;
 }
 
 function renderProgress() {
@@ -402,8 +462,8 @@ function renderProgress() {
     <div class="section-head"><h2>Blue belt checklist</h2><span class="small muted">${met}/${r.checklist.length}</span></div>
     <div class="card">
       ${r.checklist.map(c => `
-        <div class="check"><span class="ic s${c.status}">${c.status === 2 ? '✓' : c.status === 1 ? '~' : ''}</span><span>${c.label}</span><span class="grp">${c.group}</span></div>`).join('')}
-      <div class="small muted" style="margin-top:10px">✓ = rated "In rolls" or better · ~ = getting there (drilling).</div>
+        <div class="check"><span class="ic s${c.status}">${c.status === 2 ? '✓' : c.status === 1 ? '~' : ''}</span><span>${c.label}${c.evidence ? `<br><span class="small muted">${escapeHtml(c.evidence)}</span>` : ''}</span><span class="grp">${c.group}</span></div>`).join('')}
+      <div class="small muted" style="margin-top:10px">✓ met · ~ getting there. Positional rounds and roll results override self-ratings once there's enough data.</div>
     </div>
 
     <div class="section-head"><h2>Skill areas</h2></div>
@@ -411,9 +471,13 @@ function renderProgress() {
       <div class="card tight">
         <div class="row between"><b style="font-size:14px">${d.label}</b><span class="small muted">${Math.round(d.pct * 100)}% · weight ${Math.round(d.weight * 100)}%</span></div>
         <div style="margin:8px 0">${meterHTML(d.pct)}</div>
-        <div class="small muted">${d.why}</div>
+        <div class="small muted">${d.why}${d.evidence ? ` · <b>based on ${d.evidence.reps} positional rounds</b> + your ratings` : ''}</div>
         ${d.pct < 1 ? `<div class="chips" style="margin-top:8px">${d.weakest.filter(w => w.move).map(w => `<button class="chip sm" data-act="move-open" data-id="${w.move.id}">${escapeHtml(w.move.name)} · ${STATE_LABELS[w.s]}</button>`).join('')}</div>` : ''}
       </div>`).join('')}
+
+    ${liveEvidenceHTML(r)}
+
+    <button class="btn ghost block" data-act="go" data-to="report" style="margin-top:16px">${ICON.doc} Coach report</button>
 
     <div class="section-head"><h2>Milestones</h2><span class="small muted">${ms.earned.length}/${ms.list.length}</span></div>
     <div class="badges">
@@ -430,7 +494,8 @@ function renderProgress() {
           <li><b>Live performance (15%).</b> Instructors promote on what they see in rolls: being competitive with peers and controlling newer white belts safely.</li>
           <li><b>Consistency (10%).</b> Attendance is the most cited non-technical factor.</li>
         </ul>
-        <p>Predicted stripes use the common rule of thumb that each white-belt stripe is about 20% of the journey. Some gyms (10th Planet among them) don't use stripes.</p>
+        <p><b>Evidence beats self-rating.</b> With 5+ positional rounds in an area, real success rates make up 60% of that area's score. With 6+ logged rolls, results against higher, similar and newer partners make up most of the live score.</p>
+        <p>Predicted stripes use the common rule of thumb that each white-belt stripe is about 20% of the journey. Some gyms don't use stripes at all.</p>
         <p class="small">Sources: ${READINESS.sources.map(s => `<a href="${s.url}" target="_blank" rel="noopener">${s.label}</a>`).join(' · ')}</p>
       </details>
     </div>
@@ -448,6 +513,10 @@ function settingsSheetHTML() {
     <h2 class="sheet-title">Settings</h2>
     <p class="sheet-sub">Rank, weekly goal, look and your data.</p>
 
+    <div class="grid-2">
+      <label class="field"><div class="lbl">Name <span class="opt">for reports</span></div><input type="text" data-bind="name" value="${escapeHtml(d.name)}" placeholder="Your name"></label>
+      <label class="field"><div class="lbl">Gym <span class="opt">optional</span></div><input type="text" data-bind="gym" value="${escapeHtml(d.gym)}" placeholder="Academy"></label>
+    </div>
     <div class="field"><div class="lbl">Belt</div>
       <div class="chips">${BELTS.map(b => chip(`${beltSwatch(b.id, 0)} ${b.name}`, d.belt === b.id, `data-act="set-belt" data-v="${b.id}"`)).join('')}</div>
     </div>

@@ -110,11 +110,13 @@ function tagLabel(id) { return (WORK_TAGS.find(t => t.id === id) || { label: id 
 
 function movePractice() {
   const m = {};
-  // sessions are newest-first, so the first sighting is the latest
-  state.sessions.forEach(s => (s.moves || []).forEach(id => {
-    if (!m[id]) m[id] = { count: 0, last: s.date };
+  const add = (id, date) => {
+    if (!m[id]) m[id] = { count: 0, last: date };
     m[id].count++;
-  }));
+    if (date > m[id].last) m[id].last = date;
+  };
+  state.sessions.forEach(s => (s.moves || []).forEach(id => add(id, s.date)));
+  state.drillLog.forEach(d => (d.moves || []).forEach(id => add(id, d.date)));
   return m;
 }
 
@@ -160,15 +162,19 @@ function gameplanCoverage() {
    ========================================================= */
 function domainScores() {
   const R = READINESS;
+  const ev = positionalEvidence();
   return R.domains.map(d => {
     const states = d.moves.map(id => moveState(id));
     const avg = states.reduce((a, s) => a + R.stateScore[s], 0) / states.length;
-    const pct = Math.min(avg / R.domainReadyAt, 1);
+    const selfPct = Math.min(avg / R.domainReadyAt, 1);
+    // Real results from positional rounds outweigh self-rating once there are enough reps.
+    const evidence = ev[d.id] || null;
+    const pct = evidence ? selfPct * 0.4 + evidence.score * 0.6 : selfPct;
     const weakest = d.moves
       .map(id => ({ move: moveById(id), s: moveState(id) }))
       .sort((a, b) => a.s - b.s)
       .slice(0, 3);
-    return { ...d, avg, pct, weakest };
+    return { ...d, avg, selfPct, evidence, pct, weakest };
   });
 }
 
@@ -178,10 +184,22 @@ function countAt(ids, min) { return ids.filter(id => moveState(id) >= min).lengt
 // Each item: status 2 = met, 1 = partly, 0 = not yet.
 function blueBeltChecklist(ctx) {
   const lvl = (v, full, part) => (v >= full ? 2 : v >= part ? 1 : 0);
+  const pos = positionalStats(recentSessions(120));
+  // With 5+ positional reps, real escape rates decide; otherwise self-rating.
+  const esc = (posId, ids) => {
+    const p = pos[posId];
+    const bm = POSITIONAL.find(x => x.id === posId).benchmark;
+    if (p && p.n >= 5) return { status: lvl(p.rate, bm, bm / 2), evidence: `${Math.round(p.rate * 100)}% in ${p.n} positional rounds` };
+    return { status: lvl(bestState(ids), 3, 2) };
+  };
+  const peer = ctx.rolls.peer, newer = ctx.rolls.newer, higher = ctx.rolls.higher;
+  const live = peer && peer.n >= 4
+    ? { status: lvl(peer.score, 0.5, 0.3), evidence: `${Math.round(peer.score * 100)}% vs peers (${peer.n} rounds)` }
+    : { status: ctx.avgFeel == null ? 0 : lvl(ctx.avgFeel, 2.8, 2) };
   return [
-    { group: 'Hard to pin', label: 'Escape bottom mount', status: lvl(bestState(['e1', 'e2']), 3, 2) },
-    { group: 'Hard to pin', label: 'Escape bottom side control', status: lvl(bestState(['e3', 'e4']), 3, 2) },
-    { group: 'Hard to pin', label: 'Escape the back', status: lvl(bestState(['e5', 'e6']), 3, 2) },
+    { group: 'Hard to pin', label: 'Escape bottom mount', ...esc('mount-bottom', ['e1', 'e2']) },
+    { group: 'Hard to pin', label: 'Escape bottom side control', ...esc('side-bottom', ['e3', 'e4']) },
+    { group: 'Hard to pin', label: 'Escape the back', ...esc('back-bottom', ['e5', 'e6']) },
     { group: 'Hard to submit', label: 'Defend RNC, armbar, triangle, guillotine', status: lvl(countAt(['d1', 'd2', 'd3', 'd4'], 3), 3, 1) },
     { group: 'Hard to pass', label: 'Retain guard under pressure', status: lvl(bestState(['g16', 'o9', 'g9']), 3, 2) },
     { group: 'Guard', label: 'A sweep from closed guard', status: lvl(bestState(['g2', 'g3', 'g4']), 3, 2) },
@@ -192,7 +210,9 @@ function blueBeltChecklist(ctx) {
     { group: 'Standing', label: 'A takedown or safe guard pull', status: lvl(bestState(['st5', 'st7', 'st8', 'st14', 'st11']), 3, 2) },
     { group: 'Mat time', label: '150+ mat hours', status: lvl(ctx.hours, 150, 75) },
     { group: 'Mat time', label: 'Training 2+ times a week', status: lvl(ctx.perWeek12, 2, 1) },
-    { group: 'Live', label: 'Competitive in rolls with peers', status: ctx.avgFeel == null ? 0 : lvl(ctx.avgFeel, 2.8, 2) },
+    { group: 'Live', label: 'Competitive with peers', ...live },
+    { group: 'Live', label: 'Controls newer people safely', ...(newer && newer.n >= 3 ? { status: lvl(newer.score, 0.75, 0.5), evidence: `${Math.round(newer.score * 100)}% vs newer (${newer.n} rounds)` } : { status: 0, evidence: 'Log who you rolled with to track this' }) },
+    { group: 'Live', label: 'Survives higher belts', ...(higher && higher.n >= 3 ? { status: lvl(higher.score, 0.35, 0.15), evidence: `${Math.round(higher.score * 100)}% even-or-better vs higher (${higher.n} rounds)` } : { status: 0, evidence: 'Log who you rolled with to track this' }) },
     { group: 'Game plan', label: 'A go-to escape from mount, side and back', status: lvl(ctx.escapePlans, 3, 1) },
   ];
 }
@@ -212,7 +232,10 @@ function calcReadiness() {
   // Live: how rolls have felt lately (needs at least 3 rated sessions).
   const rated = state.sessions.filter(s => s.feel).slice(0, 10);
   const avgFeel = rated.length ? rated.reduce((a, s) => a + s.feel, 0) / rated.length : null;
-  const liveScore = rated.length >= 3 ? Math.min((avgFeel - 1) / 2, 1) : null;
+  const feelScore = rated.length >= 3 ? Math.min((avgFeel - 1) / 2, 1) : null;
+  const rolls = rollStats(recentSessions(90));
+  const rollScore = rollReadiness(rolls);
+  const liveScore = rollScore == null ? feelScore : feelScore == null ? rollScore : rollScore * 0.65 + feelScore * 0.35;
 
   // Consistency: sessions over the last 12 weeks vs 2/week.
   const from12 = addDays(weekStart(today), -7 * (R.consistencyWeeks - 1));
@@ -246,7 +269,7 @@ function calcReadiness() {
   };
 
   const escapePlans = ['mount-bottom', 'side-bottom', 'back-bottom'].filter(id => (state.gameplan[id]?.moves || []).length).length;
-  const checklist = blueBeltChecklist({ hours: all.hours, perWeek12, avgFeel, escapePlans });
+  const checklist = blueBeltChecklist({ hours: all.hours, perWeek12, avgFeel: rated.length >= 3 ? avgFeel : null, escapePlans, rolls });
 
   const monthsAtBelt = (Date.now() - state.beltStartedAt) / (1000 * 60 * 60 * 24 * 30.44);
   const unratedNew = ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'g16'].filter(id => moveState(id) === 0).length;
@@ -257,7 +280,7 @@ function calcReadiness() {
     pillars: Object.entries(R.pillars).map(([k, p]) => ({ id: k, ...p, score: scores[k] })),
     domains, checklist, projection,
     hours: all.hours, rounds: all.rounds, sessions: all.count,
-    perWeek12, avgFeel, ratedCount: rated.length, monthsAtBelt, unratedNew,
+    perWeek12, avgFeel, ratedCount: rated.length, monthsAtBelt, unratedNew, rolls, rollScore, feelScore,
   };
 }
 
@@ -418,6 +441,8 @@ function buildReview(mode, anchorIso) {
     sessions, cur, prev, taps, tags, prevTags, targetSessions,
     movesWorked: Object.entries(movesWorked).sort((a, c) => c[1] - a[1]),
     focus, injuries, notes, headline, changes, plan,
+    rolls: rollStats(sessions), positional: positionalStats(sessions),
+    drills: state.drillLog.filter(d => d.date >= b.from && d.date < b.to).length,
   };
 }
 
@@ -437,3 +462,266 @@ function formatDate(d, opts) {
 }
 function formatShort(d) { return formatDate(d, { day: 'numeric', month: 'short' }); }
 function formatMonthYear(d) { return formatDate(d, { month: 'long', year: 'numeric' }); }
+
+/* =========================================================
+   ROLLS BY LEVEL & POSITIONAL ROUNDS
+   ========================================================= */
+function recentSessions(days) {
+  const from = addDays(todayISO(), -days);
+  return state.sessions.filter(s => s.date > from);
+}
+
+// s.rolls = { peer: { win: 2, even: 1 }, ... }
+function rollStats(sessions) {
+  const out = {};
+  ROLL_LEVELS.forEach(l => { out[l.id] = { win: 0, even: 0, loss: 0, n: 0, score: 0 }; });
+  sessions.forEach(s => Object.entries(s.rolls || {}).forEach(([lvl, r]) => {
+    if (!out[lvl]) return;
+    ['win', 'even', 'loss'].forEach(k => { out[lvl][k] += r[k] || 0; });
+  }));
+  Object.entries(out).forEach(([lvl, o]) => {
+    o.n = o.win + o.even + o.loss;
+    // vs higher belts, holding them even is the standard; elsewhere even counts half
+    o.score = o.n ? (lvl === 'higher' ? (o.win + o.even) / o.n : (o.win + o.even * 0.5) / o.n) : 0;
+  });
+  return out;
+}
+
+function rollReadiness(rolls) {
+  const total = Object.values(rolls).reduce((a, r) => a + r.n, 0);
+  if (total < 6) return null;
+  const parts = Object.entries(rolls).filter(([, r]) => r.n >= 3).map(([lvl, r]) => Math.min(r.score / ROLL_BENCHMARKS[lvl], 1));
+  return parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : null;
+}
+
+// s.positional = [{ pos: 'side-bottom', result: 'win' | 'even' | 'loss' }]
+function positionalStats(sessions) {
+  const out = {};
+  sessions.forEach(s => (s.positional || []).forEach(p => {
+    if (!out[p.pos]) out[p.pos] = { win: 0, even: 0, loss: 0, n: 0, rate: 0 };
+    out[p.pos][p.result] = (out[p.pos][p.result] || 0) + 1;
+  }));
+  Object.values(out).forEach(o => { o.n = o.win + o.even + o.loss; o.rate = o.n ? (o.win + o.even * 0.5) / o.n : 0; });
+  return out;
+}
+
+// Per readiness domain: score vs benchmark, once there are 5+ reps.
+function positionalEvidence() {
+  const stats = positionalStats(recentSessions(120));
+  const out = {};
+  READINESS.domains.forEach(d => {
+    const ps = POSITIONAL.filter(p => p.domain === d.id && stats[p.id] && stats[p.id].n >= 1);
+    const reps = ps.reduce((a, p) => a + stats[p.id].n, 0);
+    if (reps < 5) return;
+    const score = ps.reduce((a, p) => a + Math.min(stats[p.id].rate / p.benchmark, 1) * stats[p.id].n, 0) / reps;
+    out[d.id] = { score, reps };
+  });
+  return out;
+}
+
+function partnerList() {
+  const m = {};
+  state.sessions.forEach(s => (s.partners || []).forEach(p => { m[p] = (m[p] || 0) + 1; }));
+  return Object.entries(m).sort((a, b) => b[1] - a[1]).map(([p]) => p);
+}
+
+/* =========================================================
+   DRILL QUEUE
+   ========================================================= */
+function drillQueue(mode = 'partner') {
+  const recentTags = tagCounts(state.sessions.slice(0, 8)).map(([t]) => t);
+  const items = [];
+  const seen = new Set();
+  const add = it => { if (!seen.has(it.id) && items.length < 5) { seen.add(it.id); items.push(it); } };
+
+  if (mode === 'solo') {
+    const scored = SOLO_DRILLS.map(d => ({
+      d, score: d.tags.reduce((a, t) => a + (recentTags.includes(t) ? 3 - Math.min(2, recentTags.indexOf(t)) : 0), 0)
+        + d.moves.reduce((a, id) => a + (4 - moveState(id)) * 0.2, 0),
+    })).sort((a, b) => b.score - a.score);
+    scored.slice(0, 4).forEach(({ d }) => add({ id: d.id, name: d.name, dose: d.dose, secs: d.secs, moves: d.moves,
+      why: d.tags.find(t => recentTags.includes(t)) ? `For ${tagLabel(d.tags.find(t => recentTags.includes(t))).toLowerCase()}` : 'Movement base' }));
+    if (!items.find(i => i.id === 'sd-breath')) add({ id: 'sd-breath', ...SOLO_DRILLS.find(d => d.id === 'sd-breath'), why: 'Calm under pressure' });
+    return items;
+  }
+
+  const focus = state.focus[0];
+  recentTags.slice(0, 2).forEach(t => {
+    const m = drillForTag(t);
+    if (m) add({ id: 'mv-' + m.id, name: m.name, dose: '10 reps each side, then 1 min flow', secs: 180, moves: [m.id], why: `${tagLabel(t)} keeps coming up` });
+  });
+  const caught = tapSummary(state.taps.filter(t => daysBetween(t.date, todayISO()) <= 60)).caughtBy[0];
+  if (caught) {
+    const def = moveById((COMMON_SUBS.find(c => c.id === caught[0]) || {}).defence || '');
+    if (def) add({ id: 'mv-' + def.id, name: def.name, dose: 'Partner applies slowly, 5 escapes each', secs: 120, moves: [def.id], why: `${subLabel(caught[0])} caught you ${caught[1]}× lately` });
+  }
+  const pos = positionalStats(recentSessions(60));
+  const weakPos = POSITIONAL.filter(p => pos[p.id] && pos[p.id].n >= 3).sort((a, b) => pos[a.id].rate - pos[b.id].rate)[0];
+  const startPos = weakPos || POSITIONAL.find(p => p.domain === 'escapes');
+  add({ id: 'pos-' + startPos.id, name: `Positional: start in ${startPos.label.toLowerCase()}`, dose: '2 × 2 min, reset on escape', secs: 240, moves: [],
+    why: weakPos ? `${Math.round(pos[weakPos.id].rate * 100)}% success there recently` : 'Escapes are the blue-belt priority' });
+  const fading = fadingMoves(1)[0];
+  if (fading) add({ id: 'mv-' + fading.move.id, name: fading.move.name, dose: '5 reps each side', secs: 90, moves: [fading.move.id], why: `Not worked in ${fading.days} days` });
+  if (focus && items.length < 5) add({ id: 'focus', name: focus.theme, dose: 'Set it up 5 times with light resistance', secs: 120, moves: [], why: 'Your #1 focus' });
+  if (items.length < 3) {
+    const weakest = domainScores().sort((a, b) => a.pct - b.pct)[0];
+    const m = weakest && weakest.weakest[0] && weakest.weakest[0].move;
+    if (m) add({ id: 'mv-' + m.id, name: m.name, dose: '10 reps each side', secs: 150, moves: [m.id], why: `Weakest area: ${weakest.label.toLowerCase()}` });
+  }
+  return items;
+}
+
+function drillDaysThisWeek() {
+  const from = weekStart(todayISO());
+  return new Set(state.drillLog.filter(d => d.date >= from).map(d => d.date)).size;
+}
+
+/* =========================================================
+   COMPETITIONS
+   ========================================================= */
+function upcomingComp() {
+  const today = todayISO();
+  return state.comps.filter(c => c.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0] || null;
+}
+function compPhase(comp) {
+  const days = daysBetween(todayISO(), comp.date);
+  const idx = COMP_PHASES.findIndex(p => days >= p.minDays);
+  return { days, idx, phase: COMP_PHASES[idx] };
+}
+function compRecord() {
+  const r = { win: 0, loss: 0, subs: 0, comps: 0 };
+  state.comps.forEach(c => {
+    if (c.matches.length) r.comps++;
+    c.matches.forEach(m => { r[m.result === 'win' ? 'win' : 'loss']++; if (m.result === 'win' && m.method === 'sub') r.subs++; });
+  });
+  return r;
+}
+
+/* =========================================================
+   VOICE / QUICK TEXT -> SESSION FIELDS
+   Turns "90 minute class, five rounds, got smashed, caught by a heel hook
+   twice, struggled with guard retention, knee is sore" into chips.
+   ========================================================= */
+const NUM_WORDS = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, a: 1, an: 1, once: 1, twice: 2, thrice: 3 };
+const MOVE_KEYWORDS = [
+  [/knee (cut|slice)/, 'p1'], [/toreando|bull ?fighter/, 'p2'], [/leg drag|long step/, 'p4'], [/body ?lock pass/, 'p8'], [/smash pass/, 'p7'],
+  [/stack pass/, 'p3'], [/over[- ]under/, 'p6'], [/single leg x|\bslx\b/, 'o1'], [/x[- ]guard/, 'o3'], [/50[- \/]?50/, 'o7'], [/de la riva|\bdlr\b/, 'o5'],
+  [/butterfly sweep|hook sweep/, 'g13'], [/hip bump/, 'g2'], [/scissor sweep/, 'g3'], [/pendulum|flower sweep/, 'g4'], [/knee shield/, 'g9'],
+  [/heel ?hook/, 'l5'], [/straight ankle|ankle lock/, 'l1'], [/ashi/, 'l2'], [/toe ?hold/, 'l6'], [/knee ?bar/, 'l7'], [/411|honey ?hole|saddle|inside sankaku/, 'l4'],
+  [/rear naked|\brnc\b/, 'b4'], [/body triangle/, 'b5'], [/back take|take the back/, 'b1'], [/seat ?belt/, 'b3'],
+  [/arm ?drag/, 'st11'], [/single leg(?! x)/, 'st5'], [/double leg/, 'st7'], [/snap ?down|front headlock/, 'st3'], [/sprawl/, 'st12'], [/body ?lock takedown/, 'st8'],
+  [/elbow[- ]knee/, 'e2'], [/\bupa\b|bridge and roll/, 'e1'], [/guillotine/, 'g8'], [/triangle(?! defen)/, 'g6'], [/americana/, 't4'], [/north[- ]south choke/, 't7'],
+  [/darce|d'arce/, 'cm_darce'], [/arm triangle/, 't6'],
+];
+
+function parseCount(str) {
+  const m = str.match(/\b(\d+)\s*(?:x|times)\b|\b(twice|thrice|once)\b|\b(one|two|three|four|five|six)\s+times\b/);
+  if (!m) return 1;
+  return Number(m[1]) || NUM_WORDS[m[2]] || NUM_WORDS[m[3]] || 1;
+}
+
+function parseSessionText(text) {
+  const t = ' ' + text.toLowerCase().replace(/[’']/g, "'") + ' ';
+  const num = '(\\d+|' + Object.keys(NUM_WORDS).join('|') + ')';
+  const toN = v => Number(v) || NUM_WORDS[v] || 0;
+  const patch = {};
+  const found = [];
+
+  // round length first, so "5 minute rounds" doesn't become the session length
+  const rl = t.match(new RegExp(num + '[- ]?min(?:ute)?s?\\s+(?:rounds|rolls)'));
+  if (rl) { patch.sparMins = toN(rl[1]); found.push(`${patch.sparMins}-min rounds`); }
+  const tNoRl = rl ? t.replace(rl[0], ' ') : t;
+
+  if (/hour and a half|one and a half hours|1\.5 ?h/.test(tNoRl)) patch.minutes = 90;
+  else {
+    const h = tNoRl.match(new RegExp(num + '\\s*(?:hours?|hrs?)\\b'));
+    const m = tNoRl.match(/(\d{2,3})[- ]?(?:min|mins|minute|minutes)\b/);
+    if (m) patch.minutes = Number(m[1]);
+    else if (h) patch.minutes = toN(h[1]) * 60;
+    else if (/\ban hour\b|\bhour[- ](long|class|session)\b|^\s*hour\b/.test(tNoRl)) patch.minutes = 60;
+  }
+  if (patch.minutes) found.push(`${patch.minutes} min`);
+
+  const r = tNoRl.match(new RegExp(num + '\\s+(?:rounds|rolls|spars|live rounds)'));
+  if (r) { patch.spars = toN(r[1]); found.push(`${patch.spars} rounds`); }
+
+  if (/open mat/.test(t)) patch.type = 'open';
+  else if (/\bprivate\b/.test(t)) patch.type = 'private';
+  else if (/\b(comp|competition|tournament)\b/.test(t)) patch.type = 'comp';
+  else if (/\bclass\b/.test(t)) patch.type = 'class';
+  if (patch.type) found.push(SESSION_TYPES.find(x => x.id === patch.type).label.toLowerCase());
+
+  if (/smash|crushed|destroyed|cooked|got bodied|rough (day|session)|struggled all/.test(t)) patch.feel = 1;
+  else if (/surviv|held on|hung in/.test(t)) patch.feel = 2;
+  else if (/\beven\b|competitive|back and forth|traded/.test(t)) patch.feel = 3;
+  else if (/dominat|ran (it|through)|controlled|great rolls|felt strong|smashed (people|everyone|them)/.test(t)) patch.feel = 4;
+  if (/smashed (people|everyone|them)/.test(t)) patch.feel = 4;
+  if (patch.feel) found.push(`rolls: ${FEEL[patch.feel].label.toLowerCase()}`);
+
+  if (/exhausted|knackered|gassed|no energy|drained|tired|sluggish/.test(t)) patch.mood = 2;
+  else if (/lots of energy|energetic|felt fresh|felt great|full of energy/.test(t)) patch.mood = 4;
+  if (patch.mood) found.push(`energy ${patch.mood}/5`);
+
+  const clauses = t.split(/[.;!?]|,|\bbut\b|\bthen\b|\band also\b/).map(c => c.trim()).filter(Boolean);
+  const workOn = new Set();
+  const tapsIn = {}, tapsOut = {};
+  const moves = new Set();
+  let covered = '';
+  clauses.forEach(c => {
+    if (/struggl|stuck|couldn't|could not|can't|kept getting|got passed|weak|need to|needs work|work on|trouble|bad at|problem|lost/.test(c)) {
+      inferWorkTags(c).forEach(x => workOn.add(x));
+      if (/gas|cardio|tired|out of breath/.test(c)) workOn.add('cardio');
+      if (/panic|calm|composure|frantic/.test(c)) workOn.add('composure');
+      if (/leg ?lock|heel ?hook|ankle/.test(c) && /defen|got caught|caught by|tapped/.test(c)) workOn.add('leg-locks');
+    }
+    const sub = normalizeSub(c);
+    if (sub !== 'other') {
+      const n = parseCount(c);
+      if (/got (caught|tapped|subbed|submitted|heel hooked|choked|armbarred)|caught (by|in|with)|caught me|tapped me|submitted me|tapped (to|from)|got me|subbed me/.test(c) && !/\bi caught\b/.test(c)) tapsIn[sub] = (tapsIn[sub] || 0) + n;
+      else if (/\bi (caught|tapped|hit|got|finished|submitted|landed)|\b(caught|tapped|finished|submitted) (him|her|them|someone|a guy|people|my partner)|\blanded\b|\bhit (a|an|my|the)\b/.test(c)) tapsOut[sub] = (tapsOut[sub] || 0) + n;
+    }
+    if (/\b(taught|covered|drilled|learned|learnt|worked on|class was|we did|focus was|technique was)\b/.test(c) && !/struggl|need to/.test(c)) {
+      MOVE_KEYWORDS.forEach(([re, id]) => { if (re.test(c) && moveById(id)) moves.add(id); });
+      if (!covered) covered = c.replace(/^.*?\b(taught|covered|drilled|learned|learnt|worked on|class was|we did|focus was|technique was)\b\s*/, '').replace(/^(on|was|about)\s+/, '');
+    }
+  });
+  if (workOn.size) { patch.workOn = [...workOn]; found.push(`work on: ${patch.workOn.map(x => tagLabel(x).toLowerCase()).join(', ')}`); }
+  if (Object.keys(tapsIn).length) { patch.tapsIn = tapsIn; found.push(`caught by ${Object.entries(tapsIn).map(([k, n]) => subLabel(k) + (n > 1 ? ' ×' + n : '')).join(', ')}`); }
+  if (Object.keys(tapsOut).length) { patch.tapsOut = tapsOut; found.push(`you caught ${Object.entries(tapsOut).map(([k, n]) => subLabel(k) + (n > 1 ? ' ×' + n : '')).join(', ')}`); }
+  if (moves.size) { patch.moves = [...moves]; found.push(`${moves.size} move${moves.size > 1 ? 's' : ''} tagged`); }
+  if (covered) patch.covered = capitalize(covered.slice(0, 80));
+
+  const inj = t.match(/\b(knee|shoulder|ribs?|neck|lower back|back|elbow|ankle|wrist|fingers?|toes?|hip|hamstring|groin)\b[^.]{0,25}?\b(hurts?|hurting|sore|tweak|tweaked|pain|injur\w*|niggle|popped|banged)/)
+    || t.match(/\b(hurt|tweaked|injured|banged up|sore)\s+(?:my\s+)?(knee|shoulder|ribs?|neck|lower back|back|elbow|ankle|wrist|fingers?|toes?|hip|hamstring|groin)\b/);
+  if (inj) {
+    const part = /hurt|tweaked|injured|banged|sore/.test(inj[1]) && inj[2] && !/hurt|sore|tweak|pain|injur|niggle|popped|banged/.test(inj[2]) ? inj[2] : inj[1];
+    patch.injury = capitalize(part);
+    found.push(`injury: ${part}`);
+  }
+  return { patch, found };
+}
+
+/* =========================================================
+   COACH REPORT
+   ========================================================= */
+function reportData() {
+  const r = calcReadiness();
+  const all = totals(state.sessions);
+  const first = state.sessions[state.sessions.length - 1];
+  const months = first ? Math.max(1, daysBetween(first.date, todayISO()) / 30.44) : 0;
+  const recent = state.sessions.slice(0, 12);
+  return {
+    r, all, months,
+    since: first ? first.date : null,
+    perWeek12: r.perWeek12,
+    topWork: tagCounts(recent).slice(0, 4),
+    taps: tapSummary(state.taps.filter(t => daysBetween(t.date, todayISO()) <= 120)),
+    rolls: rollStats(recentSessions(90)),
+    positional: positionalStats(recentSessions(120)),
+    gameplan: GAMEPLAN_POSITIONS.map(p => ({ p, moves: (state.gameplan[p.id]?.moves || []).map(id => moveById(id)?.name).filter(Boolean), note: state.gameplan[p.id]?.note || '' })),
+    focus: state.focus.map(f => ({ f, st: focusStats(f) })),
+    comps: compRecord(),
+    reliable: getAllMoves().filter(m => moveState(m.id) >= 3).length,
+    total: getAllMoves().length,
+  };
+}

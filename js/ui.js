@@ -14,6 +14,7 @@ const ui = {
   logSearch: '',
   reviewMode: 'week',
   reviewAnchor: todayISO(),
+  compId: null,
 };
 let draft = null;
 
@@ -28,17 +29,25 @@ const ICON = {
   next: '<svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>',
   chev: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>',
   edit: '<svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5l4 4L7 21l-4 1 1-4z"/></svg>',
+  trophy: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>',
+  doc: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>',
+  mic: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+  play: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7 4l13 8-13 8z"/></svg>',
+  check: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>',
 };
 
 /* =========================================================
    CORE
    ========================================================= */
-function toast(msg) {
+// toast('Saved') or toast('Deleted', { label: 'Undo', fn: () => ... })
+function toast(msg, action) {
   const t = $('#toast');
-  t.textContent = msg;
+  t.innerHTML = escapeHtml(msg) + (action ? ` <button class="toast-btn" id="toastAct">${escapeHtml(action.label)}</button>` : '');
+  t.classList.toggle('has-action', !!action);
   t.classList.add('show');
+  if (action) $('#toastAct').onclick = e => { e.stopPropagation(); t.classList.remove('show'); action.fn(); };
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => t.classList.remove('show'), 2000);
+  toast._t = setTimeout(() => t.classList.remove('show'), action ? 5000 : 2000);
 }
 
 function applyTheme() {
@@ -50,7 +59,7 @@ function applyTheme() {
 function show(screen) {
   ui.screen = screen;
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === 'screen-' + screen));
-  const tab = screen === 'progress' ? 'home' : screen;
+  const tab = ['progress', 'comps', 'comp', 'report'].includes(screen) ? 'home' : screen;
   document.querySelectorAll('nav.tabs [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   renderScreen(screen);
   window.scrollTo(0, 0);
@@ -58,7 +67,8 @@ function show(screen) {
 
 function renderScreen(screen = ui.screen) {
   renderHeader();
-  const fn = { home: renderHome, log: renderLog, skills: renderSkills, review: renderReview, progress: renderProgress }[screen];
+  const fn = { home: renderHome, log: renderLog, skills: renderSkills, review: renderReview, progress: renderProgress,
+    comps: renderComps, comp: renderComp, report: renderReport }[screen];
   if (fn) $('#screen-' + screen).innerHTML = fn();
 }
 
@@ -86,6 +96,9 @@ function refreshSheet(html) {
 function closeSheet() {
   $('#sheetBg').classList.remove('open');
   document.body.style.overflow = '';
+  if (draft?.voice?.listening) stopVoice();
+  if (draft?.timerId) clearInterval(draft.timerId);
+  releaseWakeLock();
   draft = null;
 }
 
@@ -234,9 +247,11 @@ function renderHome() {
     <p class="screen-sub">${sub}</p>
     ${welcome}
     ${newMoves}
+    ${compHomeCard()}
     ${heroCard(r)}
     ${weekCard()}
     ${rampCard()}
+    ${toolsHTML()}
 
     <div class="section-head"><h2>Next session</h2></div>
     <div class="card">
@@ -271,7 +286,6 @@ function newSessionDraft(id) {
     id: s ? s.id : null,
     date: s ? s.date : todayISO(),
     type: s ? s.type : (last.type === 'comp' ? 'class' : last.type || 'class'),
-    gi: s ? s.gi : last.gi || 'nogi',
     minutes: s ? s.minutes : last.minutes || 60,
     spars: s ? s.spars : last.spars || 4,
     sparMins: s ? s.sparMins : last.sparMins || 5,
@@ -286,7 +300,15 @@ function newSessionDraft(id) {
     tapsOut: tapsFor('out'),
     injury: s ? s.injury || '' : '',
     notes: s ? s.notes || '' : '',
+    rolls: s ? JSON.parse(JSON.stringify(s.rolls || {})) : {},
+    partners: s ? [...(s.partners || [])] : [],
+    positional: s ? (s.positional || []).map(p => ({ ...p })) : [],
+    posPick: null,
+    partnerInput: '',
+    showRolls: !!(s && (Object.keys(s.rolls || {}).length || (s.partners || []).length)),
+    showPos: !!(s && (s.positional || []).length),
     more: !!(s && (s.injury || s.notes || state.taps.some(t => t.sessionId === s.id))),
+    voice: null,          // { listening, text, found }
     moveSearch: '',
     legacy: s ? s.legacy : null,
   };
@@ -314,7 +336,8 @@ function sessionSheetHTML() {
 
   return `
     <h2 class="sheet-title">${d.id ? 'Edit session' : 'Log session'}</h2>
-    <p class="sheet-sub">${d.id ? 'Tap anything to change it.' : 'Tap through it. Everything below the rounds is optional.'}</p>
+    <p class="sheet-sub">${d.id ? 'Tap anything to change it.' : 'Tap through it, or just say how it went.'}</p>
+    ${voiceBlockHTML()}
 
     <div class="field">
       <div class="lbl">When</div>
@@ -329,17 +352,14 @@ function sessionSheetHTML() {
       <div class="lbl">Session</div>
       <div class="chips">
         ${SESSION_TYPES.map(t => chip(t.label, d.type === t.id, `data-act="d-set" data-k="type" data-v="${t.id}"`)).join('')}
-        <span style="width:8px"></span>
-        ${chip('No-gi', d.gi === 'nogi', `data-act="d-set" data-k="gi" data-v="nogi"`, 'on-blue')}
-        ${chip('Gi', d.gi === 'gi', `data-act="d-set" data-k="gi" data-v="gi"`, 'on-blue')}
       </div>
     </div>
 
     <div class="field">
       <div class="lbl">Length</div>
-      <div class="row" style="flex-wrap:wrap">
+      <div class="dur-row">
         ${durations.map(m => chip(`${m}m`, d.minutes === m, `data-act="d-set" data-k="minutes" data-v="${m}" data-num="1"`)).join('')}
-        <input class="mini" type="number" inputmode="numeric" data-bind="minutes" data-num="1" value="${durations.includes(d.minutes) ? '' : d.minutes}" placeholder="other">
+        <input type="number" inputmode="numeric" data-bind="minutes" data-num="1" value="${durations.includes(d.minutes) ? '' : d.minutes}" placeholder="min" aria-label="Other length in minutes">
       </div>
     </div>
 
@@ -378,6 +398,11 @@ function sessionSheetHTML() {
         ${[1, 2, 3, 4, 5].map(n => `<button type="button" class="${d.mood === n ? 'on' : ''}" data-act="d-set" data-k="mood" data-v="${n}" data-num="1">${n}</button>`).join('')}
       </div>
     </div>
+
+    <button type="button" class="disclosure" data-act="d-flag" data-k="showRolls">${d.showRolls ? '▾' : '▸'} Who you rolled with <span class="muted">${rollsSummary(d)}</span></button>
+    ${d.showRolls ? rollsHTML(d) : ''}
+    <button type="button" class="disclosure" data-act="d-flag" data-k="showPos">${d.showPos ? '▾' : '▸'} Positional rounds <span class="muted">${d.positional.length ? d.positional.length + ' logged' : ''}</span></button>
+    ${d.showPos ? positionalHTML(d) : ''}
 
     <label class="field">
       <div class="lbl">What we covered <span class="opt">optional</span></div>
@@ -437,6 +462,148 @@ function sessionSheetHTML() {
   `;
 }
 
+/* ---------- voice / quick text ---------- */
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function voiceBlockHTML() {
+  const v = draft.voice;
+  if (!v) {
+    return `<div class="voice-row">
+      <button type="button" class="btn sm ghost voice-btn" data-act="voice-start">${ICON.mic} ${SpeechRec ? 'Say it' : 'Dictate or type it'}</button>
+      <span class="small muted">Fills the form from your words</span>
+    </div>`;
+  }
+  return `<div class="card voice-card ${v.listening ? 'listening' : ''}">
+    <div class="row between" style="margin-bottom:8px">
+      <b class="small">${v.listening ? '<span class="rec-dot"></span> Listening… speak naturally' : 'Your summary'}</b>
+      ${v.listening ? '<button type="button" class="btn sm accent" data-act="voice-stop">Done</button>' : ''}
+    </div>
+    <textarea data-bind-voice="1" placeholder="e.g. 90 minute class, 5 rounds, drilled knee cut. Got smashed, caught by a heel hook twice. Struggled with guard retention. Knee is a bit sore.">${escapeHtml(v.text)}</textarea>
+    ${!SpeechRec ? '<div class="small muted" style="margin-top:6px">Tip: tap the mic on your keyboard to dictate.</div>' : ''}
+    ${v.found && v.found.length ? `<div class="small" style="margin-top:8px; color:var(--green)">✓ Filled: ${escapeHtml(v.found.join(' · '))}</div>` : v.found ? '<div class="small muted" style="margin-top:8px">Nothing recognised yet. Mention length, rounds, how it went, taps or what you struggled with.</div>' : ''}
+    ${!v.listening ? `<div class="row" style="margin-top:10px">
+      <button type="button" class="btn sm accent" data-act="voice-apply">${v.found ? 'Fill again' : 'Fill the form'}</button>
+      ${SpeechRec ? `<button type="button" class="btn sm ghost" data-act="voice-start">${ICON.mic} Again</button>` : ''}
+      <button type="button" class="btn sm ghost" data-act="voice-close">Close</button>
+    </div>` : ''}
+  </div>`;
+}
+
+function applyVoice() {
+  const v = draft.voice;
+  if (!v || !v.text.trim()) { toast('Say or type a summary first'); return; }
+  const { patch, found } = parseSessionText(v.text);
+  ['minutes', 'spars', 'sparMins', 'type', 'feel', 'mood', 'injury'].forEach(k => { if (patch[k] != null) draft[k] = patch[k]; });
+  if (patch.covered && !draft.covered) draft.covered = patch.covered;
+  (patch.workOn || []).forEach(t => { if (!draft.workOn.includes(t)) draft.workOn.push(t); });
+  (patch.moves || []).forEach(id => { if (!draft.moves.includes(id)) draft.moves.push(id); });
+  Object.entries(patch.tapsIn || {}).forEach(([k, n]) => { draft.tapsIn[k] = Math.max(draft.tapsIn[k] || 0, n); });
+  Object.entries(patch.tapsOut || {}).forEach(([k, n]) => { draft.tapsOut[k] = Math.max(draft.tapsOut[k] || 0, n); });
+  if (!draft.notes.includes(v.text.trim())) draft.notes = [draft.notes, v.text.trim()].filter(Boolean).join('\n');
+  if (patch.tapsIn || patch.tapsOut || patch.injury) draft.more = true;
+  v.found = found;
+  if (found.length) haptic();
+}
+
+let recognizer = null;
+function startVoice() {
+  draft.voice = draft.voice || { text: '', found: null };
+  if (!SpeechRec) { draft.voice.listening = false; rerenderSheet(); $('[data-bind-voice]')?.focus(); return; }
+  try {
+    recognizer = new SpeechRec();
+    recognizer.lang = navigator.language || 'en-GB';
+    recognizer.continuous = true;
+    recognizer.interimResults = true;
+    const base = draft.voice.text ? draft.voice.text.trim() + ' ' : '';
+    recognizer.onresult = e => {
+      let txt = '';
+      for (let i = 0; i < e.results.length; i++) txt += e.results[i][0].transcript;
+      if (!draft || !draft.voice) return;
+      draft.voice.text = base + txt;
+      const ta = $('[data-bind-voice]');
+      if (ta) ta.value = draft.voice.text;
+    };
+    recognizer.onerror = e => {
+      if (draft?.voice) draft.voice.listening = false;
+      if (e.error === 'not-allowed') toast('Microphone blocked. Type or use keyboard dictation');
+      if (draft) rerenderSheet();
+    };
+    recognizer.onend = () => {
+      if (!draft || !draft.voice) return;
+      const was = draft.voice.listening;
+      draft.voice.listening = false;
+      if (was && draft.voice.text.trim()) applyVoice();
+      rerenderSheet();
+    };
+    draft.voice.listening = true;
+    draft.voice.found = null;
+    recognizer.start();
+    rerenderSheet();
+  } catch (e) {
+    draft.voice.listening = false;
+    rerenderSheet();
+  }
+}
+function stopVoice() { try { recognizer && recognizer.stop(); } catch (_) {} }
+
+/* ---------- rolls & positional ---------- */
+function cleanRolls(rolls) {
+  const out = {};
+  Object.entries(rolls).forEach(([lvl, r]) => {
+    const c = {};
+    ['win', 'even', 'loss'].forEach(k => { if (r[k]) c[k] = r[k]; });
+    if (Object.keys(c).length) out[lvl] = c;
+  });
+  return out;
+}
+function rollsTotal(d) { return Object.values(d.rolls).reduce((a, r) => a + (r.win || 0) + (r.even || 0) + (r.loss || 0), 0); }
+function rollsSummary(d) {
+  const n = rollsTotal(d);
+  return [n ? `${n} round${n > 1 ? 's' : ''}` : '', d.partners.length ? d.partners.slice(0, 2).join(', ') + (d.partners.length > 2 ? '…' : '') : ''].filter(Boolean).join(' · ');
+}
+function rollsHTML(d) {
+  const sugg = partnerList().filter(p => !d.partners.includes(p)).slice(0, 8);
+  return `
+    <div class="field">
+      <div class="roll-grid">
+        <span></span>${ROLL_RESULTS.map(r => `<span class="rg-h">${r.label}</span>`).join('')}
+        ${ROLL_LEVELS.map(l => `
+          <span class="rg-l">${l.short}</span>
+          ${ROLL_RESULTS.map(r => {
+            const n = d.rolls[l.id]?.[r.id] || 0;
+            return `<button type="button" class="rg-cell ${n ? 'on res-' + r.id : ''}" data-act="d-roll" data-l="${l.id}" data-r="${r.id}" aria-label="${l.label}: ${r.label}">${n || '+'}</button>`;
+          }).join('')}`).join('')}
+      </div>
+      <div class="small muted" style="margin-top:6px">One tap per round. ${rollsTotal(d) ? '<button type="button" class="link-btn" data-act="d-roll-clear">Clear</button>' : ''}</div>
+    </div>
+    <div class="field">
+      <div class="lbl">Partners <span class="opt">optional</span></div>
+      ${d.partners.length ? `<div class="chips" style="margin-bottom:8px">${d.partners.map(p => chip(`${escapeHtml(p)} <span class="x">×</span>`, true, `data-act="d-partner-rm" data-v="${escapeHtml(p)}"`, 'on-blue')).join('')}</div>` : ''}
+      <div class="row"><input type="text" data-bind="partnerInput" value="${escapeHtml(d.partnerInput)}" placeholder="Name" enterkeyhint="done" style="flex:1"><button type="button" class="btn sm ghost" data-act="d-partner-add">Add</button></div>
+      ${sugg.length ? `<div class="chips" style="margin-top:8px">${sugg.map(p => chip(escapeHtml(p), false, `data-act="d-partner-pick" data-v="${escapeHtml(p)}"`)).join('')}</div>` : ''}
+    </div>`;
+}
+function positionalHTML(d) {
+  const pick = POSITIONAL.find(p => p.id === d.posPick);
+  return `
+    <div class="field">
+      <div class="small muted" style="margin-bottom:8px">Round started in a set position? Pick it, then how it ended.</div>
+      <div class="chips">${POSITIONAL.map(p => chip(p.label, d.posPick === p.id, `data-act="d-set" data-k="posPick" data-v="${p.id}"`, 'on-blue')).join('')}</div>
+      ${pick ? `<div class="row" style="margin-top:10px">
+        <button type="button" class="btn sm" style="background:var(--green); color:#06281c" data-act="d-pos" data-r="win">${pick.win}</button>
+        <button type="button" class="btn sm ghost" data-act="d-pos" data-r="even">Stalemate</button>
+        <button type="button" class="btn sm" style="background:var(--accent); color:#fff" data-act="d-pos" data-r="loss">Lost it</button>
+      </div>` : ''}
+      ${d.positional.length ? `<div class="chips" style="margin-top:10px">${d.positional.map((p, i) => {
+        const def = POSITIONAL.find(x => x.id === p.pos);
+        const lab = p.result === 'win' ? def.win : p.result === 'even' ? 'stalemate' : 'lost';
+        return chip(`${def.label}: ${lab.toLowerCase()} <span class="x">×</span>`, true, `data-act="d-pos-rm" data-i="${i}"`, p.result === 'win' ? 'on-green' : p.result === 'loss' ? 'on-accent' : 'on');
+      }).join('')}</div>` : ''}
+    </div>`;
+}
+
+function haptic() { try { navigator.vibrate && navigator.vibrate(12); } catch (_) {} }
+
 function moveResultsHTML() {
   const q = (draft?.moveSearch || '').trim().toLowerCase();
   if (q.length < 2) return '';
@@ -454,7 +621,8 @@ function saveSessionFromDraft() {
   const beforeEarned = new Set(milestones().earned.map(m => m.id));
 
   const fields = {
-    date: d.date, type: d.type, gi: d.gi, minutes: d.minutes, spars: d.spars, sparMins: d.sparMins,
+    date: d.date, type: d.type, minutes: d.minutes, spars: Math.max(d.spars, rollsTotal(d)), sparMins: d.sparMins,
+    rolls: cleanRolls(d.rolls), partners: d.partners, positional: d.positional,
     feel: d.feel, mood: d.mood, covered: d.covered.trim(), moves: d.moves, workOn: d.workOn,
     workOnNote: d.workOnNote.trim(), focus: d.focus, injury: d.injury.trim(), notes: d.notes.trim(),
   };

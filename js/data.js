@@ -4,6 +4,9 @@
    Move ids are permanent: saved data refers to them.
    ========================================================= */
 
+// Renamed categories, so saved custom moves can be mapped forward.
+const CATEGORY_RENAMES = { 'Open Guard (no-gi)': 'Open guard' };
+
 const CURRICULUM = [
   // FUNDAMENTALS
   { id: 'f1', cat: 'Fundamentals', name: 'Shrimp / hip escape' },
@@ -51,15 +54,15 @@ const CURRICULUM = [
   { id: 'g16', cat: 'Guard (closed/half/butterfly)', name: 'Guard retention: frames, hip escape & re-guard' },
 
   // OPEN GUARD
-  { id: 'o1', cat: 'Open Guard (no-gi)', name: 'Single leg X (SLX) entry' },
-  { id: 'o2', cat: 'Open Guard (no-gi)', name: 'Single leg X technical stand-up sweep' },
-  { id: 'o3', cat: 'Open Guard (no-gi)', name: 'X-guard from butterfly' },
-  { id: 'o4', cat: 'Open Guard (no-gi)', name: 'X-guard sweep' },
-  { id: 'o5', cat: 'Open Guard (no-gi)', name: 'De la Riva (no-gi grips)' },
-  { id: 'o6', cat: 'Open Guard (no-gi)', name: 'Reverse de la Riva' },
-  { id: 'o7', cat: 'Open Guard (no-gi)', name: '50/50 entries' },
-  { id: 'o8', cat: 'Open Guard (no-gi)', name: 'Z guard / quarter guard' },
-  { id: 'o9', cat: 'Open Guard (no-gi)', name: 'Sit-up guard / scissor recovery' },
+  { id: 'o1', cat: 'Open guard', name: 'Single leg X (SLX) entry' },
+  { id: 'o2', cat: 'Open guard', name: 'Single leg X technical stand-up sweep' },
+  { id: 'o3', cat: 'Open guard', name: 'X-guard from butterfly' },
+  { id: 'o4', cat: 'Open guard', name: 'X-guard sweep' },
+  { id: 'o5', cat: 'Open guard', name: 'De la Riva hook' },
+  { id: 'o6', cat: 'Open guard', name: 'Reverse de la Riva' },
+  { id: 'o7', cat: 'Open guard', name: '50/50 entries' },
+  { id: 'o8', cat: 'Open guard', name: 'Z guard / quarter guard' },
+  { id: 'o9', cat: 'Open guard', name: 'Sit-up guard / scissor recovery' },
 
   // PASSING
   { id: 'p1', cat: 'Passing', name: 'Knee cut pass' },
@@ -74,7 +77,7 @@ const CURRICULUM = [
   // TOP CONTROL & SUBS
   { id: 't1', cat: 'Top control & submissions', name: 'Mount maintenance (high mount)' },
   { id: 't2', cat: 'Top control & submissions', name: 'Mount arm bar' },
-  { id: 't3', cat: 'Top control & submissions', name: 'Mount cross choke (no-gi: arm triangle / Ezekiel)' },
+  { id: 't3', cat: 'Top control & submissions', name: 'Mount arm triangle / Ezekiel' },
   { id: 't4', cat: 'Top control & submissions', name: 'Side control: Americana' },
   { id: 't5', cat: 'Top control & submissions', name: 'Side control: kimura' },
   { id: 't6', cat: 'Top control & submissions', name: 'Side control: arm triangle' },
@@ -138,7 +141,7 @@ const CATEGORIES = [
   'Escapes',
   'Submission defence',
   'Guard (closed/half/butterfly)',
-  'Open Guard (no-gi)',
+  'Open guard',
   'Passing',
   'Top control & submissions',
   'Back control',
@@ -152,7 +155,7 @@ const CATEGORY_SHORT = {
   'Escapes': 'Escapes',
   'Submission defence': 'Defence',
   'Guard (closed/half/butterfly)': 'Guard',
-  'Open Guard (no-gi)': 'Open guard',
+  'Open guard': 'Open guard',
   'Passing': 'Passing',
   'Top control & submissions': 'Top & subs',
   'Back control': 'Back',
@@ -254,7 +257,7 @@ const GAMEPLAN_POSITIONS = [
   { id: 'standing',     label: 'Standing',            role: 'Get it down or pull safely',   cats: ['Standup & wrestling'] },
   { id: 'cg-bottom',    label: 'Closed guard',        role: 'Sweep or submit from bottom', cats: ['Guard (closed/half/butterfly)'] },
   { id: 'half-bottom',  label: 'Half guard (bottom)', role: 'Recover, sweep or take back', cats: ['Guard (closed/half/butterfly)'] },
-  { id: 'open-bottom',  label: 'Open guard',          role: 'Retain and off-balance',      cats: ['Open Guard (no-gi)', 'Guard (closed/half/butterfly)', 'Leg locks'] },
+  { id: 'open-bottom',  label: 'Open guard',          role: 'Retain and off-balance',      cats: ['Open guard', 'Guard (closed/half/butterfly)', 'Leg locks'] },
   { id: 'passing',      label: 'Passing',             role: 'Get past the legs',           cats: ['Passing'] },
   { id: 'mount-top',    label: 'Mount (top)',         role: 'Hold and finish',             cats: ['Top control & submissions', 'Back control'] },
   { id: 'side-top',     label: 'Side control (top)',  role: 'Pin, transition, finish',     cats: ['Top control & submissions'] },
@@ -340,4 +343,96 @@ const MILESTONES = [
   { id: 'w4',   kind: 'streak',   n: 4,   label: '4-week streak' },
   { id: 'w8',   kind: 'streak',   n: 8,   label: '8-week streak' },
   { id: 'w12',  kind: 'streak',   n: 12,  label: '12-week streak' },
+];
+
+/* =========================================================
+   WHO YOU ROLLED WITH (optional)
+   Instructors judge white belts on exactly this: survive higher belts,
+   be competitive with peers, control newer people safely.
+   ========================================================= */
+const ROLL_LEVELS = [
+  { id: 'higher', label: 'Higher / more experienced', short: 'Higher' },
+  { id: 'peer',   label: 'Similar level',             short: 'Peer' },
+  { id: 'newer',  label: 'Newer than me',             short: 'Newer' },
+];
+const ROLL_RESULTS = [
+  { id: 'loss', label: 'They won' },
+  { id: 'even', label: 'Even' },
+  { id: 'win',  label: 'I won' },
+];
+// What a blue-belt-ready white belt typically looks like against each level:
+// share of rounds won (even counts half; vs higher, surviving to even counts fully).
+const ROLL_BENCHMARKS = { higher: 0.35, peer: 0.5, newer: 0.75 };
+
+/* =========================================================
+   POSITIONAL ROUNDS
+   Start a round in a set position and record how it ended.
+   Gives real escape / retention / passing rates.
+   ========================================================= */
+const POSITIONAL = [
+  { id: 'mount-bottom', label: 'Bottom mount',      win: 'Escaped',   domain: 'escapes', benchmark: 0.4 },
+  { id: 'side-bottom',  label: 'Bottom side',       win: 'Escaped',   domain: 'escapes', benchmark: 0.4 },
+  { id: 'back-bottom',  label: 'Back defence',      win: 'Escaped',   domain: 'escapes', benchmark: 0.35 },
+  { id: 'guard-bottom', label: 'Guard (retaining)', win: 'Retained',  domain: 'guard',   benchmark: 0.5 },
+  { id: 'half-bottom',  label: 'Bottom half guard', win: 'Swept/recovered', domain: 'guard', benchmark: 0.45 },
+  { id: 'passing',      label: 'Passing',           win: 'Passed',    domain: 'passing', benchmark: 0.45 },
+  { id: 'mount-top',    label: 'Top mount',         win: 'Held/finished', domain: 'top', benchmark: 0.55 },
+  { id: 'side-top',     label: 'Top side',          win: 'Held/finished', domain: 'top', benchmark: 0.55 },
+  { id: 'back-top',     label: 'Back (attacking)',  win: 'Finished/held', domain: 'top', benchmark: 0.5 },
+  { id: 'standing',     label: 'Standing',          win: 'Took down',     domain: 'standup', benchmark: 0.45 },
+];
+
+/* =========================================================
+   DRILL QUEUE
+   Solo drills for rest days; partner drills come from your weak spots.
+   ========================================================= */
+const SOLO_DRILLS = [
+  { id: 'sd-shrimp',   name: 'Shrimp lines',                      dose: '2 × 60s',             secs: 120, moves: ['f1'],        tags: ['side-bottom', 'guard-retention', 'mount-bottom'] },
+  { id: 'sd-bridge',   name: 'Bridge & turn (upa)',               dose: '20 reps',             secs: 60,  moves: ['f2'],        tags: ['mount-bottom'] },
+  { id: 'sd-techstand',name: 'Technical stand-up',                dose: '10 each side',        secs: 90,  moves: ['f3'],        tags: ['standup', 'guard-retention'] },
+  { id: 'sd-granby',   name: 'Granby rolls',                      dose: '2 × 30s',             secs: 60,  moves: ['f5'],        tags: ['guard-retention', 'back-defence'] },
+  { id: 'sd-sprawl',   name: 'Shot & sprawl',                     dose: '3 × 30s',             secs: 90,  moves: ['st1', 'st12'], tags: ['standup'] },
+  { id: 'sd-level',    name: 'Level change & penetration step',   dose: '3 × 10',              secs: 90,  moves: ['st1', 'st7'], tags: ['standup'] },
+  { id: 'sd-hipswitch',name: 'Sit-out & hip switch',              dose: '2 × 45s',             secs: 90,  moves: [],            tags: ['back-defence', 'standup'] },
+  { id: 'sd-legpummel',name: 'Leg pummelling (on your back)',     dose: '2 × 45s',             secs: 90,  moves: ['g16', 'o9'], tags: ['guard-retention', 'open-guard'] },
+  { id: 'sd-breakfall',name: 'Break-falls',                       dose: '10 each way',         secs: 60,  moves: ['f4'],        tags: ['standup'] },
+  { id: 'sd-breath',   name: 'Box breathing (4-4-4-4)',           dose: '2 min',               secs: 120, moves: ['c14'],       tags: ['composure', 'cardio'] },
+];
+
+/* =========================================================
+   COMPETITION MODE
+   Prep phases by weeks out. Generic, widely used peaking structure.
+   ========================================================= */
+const COMP_PHASES = [
+  { minDays: 42, label: 'Build the A-game', tasks: [
+    'Pick one route from standing, guard and top. Write them in your game plan',
+    'Positional rounds from your worst position twice a week',
+    'Train 3× a week if you can recover from it',
+  ] },
+  { minDays: 21, label: 'Sharpen', tasks: [
+    'Hard rounds starting from standing, 5-6 min like a match',
+    'Drill your A-game chain until it is automatic',
+    'Check your weight against the division limit',
+  ] },
+  { minDays: 8, label: 'Simulate', tasks: [
+    'Match-pace rounds with a fresh partner each round',
+    'Rehearse your first 30 seconds: grip, takedown or guard pull',
+    'Learn the ruleset: points, banned leg locks, time',
+  ] },
+  { minDays: 2, label: 'Taper', tasks: [
+    'Cut volume, keep intensity short and sharp',
+    'Sleep 8h+, hydrate, no new techniques',
+    'Pack: ID, mouthguard, rashguard, spats, snacks',
+  ] },
+  { minDays: 0, label: 'Comp day', tasks: [
+    'Warm up properly 20 min before your division',
+    'One plan per position. Breathe between matches',
+    'Log every match straight after, win or lose',
+  ] },
+];
+const MATCH_METHODS = [
+  { id: 'sub',      label: 'Submission' },
+  { id: 'points',   label: 'Points' },
+  { id: 'decision', label: 'Decision' },
+  { id: 'other',    label: 'Other' },
 ];

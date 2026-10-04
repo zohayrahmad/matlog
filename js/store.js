@@ -3,7 +3,7 @@
    ========================================================= */
 
 const STORAGE_KEY = 'matlog_v1';     // never change: existing installs load from here
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 /* ---------- dates (always local time, never UTC) ---------- */
 function toISODate(ms) {
@@ -55,6 +55,9 @@ function defaultState() {
     focusArchive: [],
     gameplan: {},
     reviews: {},
+    comps: [],
+    drillLog: [],
+    profile: { name: '', gym: '' },
     goals: { perWeek: 2, rampTo: 3, rampDismissedAt: null },
     settings: { theme: 'auto' },
     seen: { newMovesV3: false },
@@ -81,12 +84,16 @@ const LEGACY_TAG_RULES = [
   ['leg-locks',       /heel hook|leg ?lock/i],
 ];
 
+function inferWorkTags(text) {
+  return LEGACY_TAG_RULES.filter(([, re]) => re.test(text)).map(([id]) => id);
+}
+
 function inferLegacySession(s) {
   if (s.legacy) return;   // already converted
   s.legacy = { taught: s.taught || '', drilled: s.drilled || '', stuck: s.stuck || '', fix: s.fix || '' };
 
   const problemText = `${s.stuck || ''} ${s.fix || ''}`;
-  const tags = LEGACY_TAG_RULES.filter(([, re]) => re.test(problemText)).map(([id]) => id);
+  const tags = inferWorkTags(problemText);
   if (/cardio|fatigue|gassed|energy\/fatigue|passed out/i.test(`${problemText} ${s.notes || ''}`)) tags.push('cardio');
   s.workOn = [...new Set(tags)];
   s.workOnNote = [s.stuck, s.fix].filter(Boolean).join(' → ');
@@ -94,7 +101,6 @@ function inferLegacySession(s) {
   s.covered = [s.taught, s.drilled].filter(Boolean).join(' · ');
   const all = `${s.taught || ''} ${s.notes || ''}`;
   s.type = /open mat/i.test(all) ? 'open' : 'class';
-  s.gi = /\bgi session\b/i.test(s.notes || '') ? 'gi' : 'nogi';
   const injury = (s.notes || '').match(/(\w+)\s+injury/i);
   s.injury = injury ? injury[1] : '';
 }
@@ -107,12 +113,15 @@ function migrate(d) {
   CURRICULUM.forEach(m => {
     if (!d.moves[m.id]) d.moves[m.id] = { state: 0, notes: '' };
   });
-  ['sessions', 'taps', 'focus', 'focusArchive', 'customMoves', 'promotions'].forEach(k => {
+  ['sessions', 'taps', 'focus', 'focusArchive', 'customMoves', 'promotions', 'comps', 'drillLog'].forEach(k => {
     if (!Array.isArray(d[k])) d[k] = [];
   });
   if (Array.isArray(d.reviews) || !d.reviews) d.reviews = {};
   if (!d.gameplan || typeof d.gameplan !== 'object') d.gameplan = {};
   d.goals = Object.assign({}, base.goals, d.goals || {});
+  d.profile = Object.assign({}, base.profile, d.profile || {});
+  d.customMoves.forEach(m => { if (CATEGORY_RENAMES[m.cat]) m.cat = CATEGORY_RENAMES[m.cat]; });
+  if (CATEGORY_RENAMES[d.filter]) d.filter = CATEGORY_RENAMES[d.filter];
   d.settings = Object.assign({}, base.settings, d.settings || {});
   d.seen = Object.assign({}, base.seen, d.seen || {});
   if (!d.startedAt) d.startedAt = base.startedAt;
@@ -129,7 +138,10 @@ function migrate(d) {
     if (!Array.isArray(s.moves)) s.moves = [];
     if (!s.focus || typeof s.focus !== 'object') s.focus = {};
     if (!s.type) s.type = 'class';
-    if (!s.gi) s.gi = 'nogi';
+    delete s.gi;   // no-gi only
+    if (!s.rolls || typeof s.rolls !== 'object') s.rolls = {};
+    if (!Array.isArray(s.partners)) s.partners = [];
+    if (!Array.isArray(s.positional)) s.positional = [];
     if (s.covered === undefined) s.covered = s.taught || '';
     if (s.workOnNote === undefined) s.workOnNote = '';
     if (!s.feel) s.feel = 0;
@@ -147,6 +159,11 @@ function migrate(d) {
     if (!f.createdAt) f.createdAt = Date.now();
   });
   if (before < 3) d.seen.newMovesV3 = false;
+  d.comps.forEach(c => {
+    if (!Array.isArray(c.matches)) c.matches = [];
+    if (!Array.isArray(c.weighIns)) c.weighIns = [];
+    if (!c.done || typeof c.done !== 'object') c.done = {};
+  });
 
   d.schemaVersion = SCHEMA_VERSION;
   sortSessions(d);
@@ -177,6 +194,7 @@ function loadState() {
 }
 
 let state = loadState();
+
 
 function saveState() {
   try {

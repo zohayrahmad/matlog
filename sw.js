@@ -2,11 +2,11 @@
    App files are network-first: online you always get the latest version,
    offline you get the last cached copy. Fonts are cache-first.
    Your training data lives in localStorage and is never touched here. */
-const CACHE = 'matlog-v3';
+const CACHE = 'matlog-v4';
 const CORE = [
-  './', './index.html', './manifest.webmanifest', './css/app.css?v=3',
-  './js/data.js?v=3', './js/store.js?v=3', './js/analytics.js?v=3', './js/charts.js?v=3',
-  './js/ui.js?v=3', './js/screens.js?v=3', './js/main.js?v=3',
+  './', './index.html', './manifest.webmanifest', './css/app.css?v=4',
+  './js/data.js?v=4', './js/store.js?v=4', './js/analytics.js?v=4', './js/charts.js?v=4',
+  './js/ui.js?v=4', './js/screens.js?v=4', './js/tools.js?v=4', './js/main.js?v=4',
   './icons/icon-192.png', './icons/apple-touch-icon.png', './icons/icon.svg',
 ];
 

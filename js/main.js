@@ -6,6 +6,7 @@ function rerenderSheet() {
   const html = {
     session: sessionSheetHTML, move: moveSheetHTML, custom: customMoveSheetHTML,
     gp: gpSheetHTML, focus: focusSheetHTML, settings: settingsSheetHTML,
+    drills: drillSheetHTML, comp: compSheetHTML, match: matchSheetHTML,
   }[draft.kind];
   if (html) refreshSheet(html());
 }
@@ -21,11 +22,12 @@ const ACTIONS = {
   'log-edit': el => { draft = newSessionDraft(el.dataset.id); openSheet(sessionSheetHTML()); },
   'save-session': () => saveSessionFromDraft(),
   'delete-session': () => {
-    if (!confirm('Delete this session? This can\'t be undone.')) return;
     const id = draft.id;
+    const snapshot = { sessions: state.sessions.slice(), taps: state.taps.slice() };
     state.sessions = state.sessions.filter(s => s.id !== id);
     state.taps = state.taps.filter(t => t.sessionId !== id);
-    save(); closeSheet(); toast('Session deleted'); renderScreen();
+    save(); closeSheet(); renderScreen();
+    toast('Session deleted', { label: 'Undo', fn: () => { state.sessions = snapshot.sessions; state.taps = snapshot.taps; save(); renderScreen(); toast('Restored'); } });
   },
 
   /* generic draft edits */
@@ -59,6 +61,27 @@ const ACTIONS = {
   },
   'd-tap-clear': () => { draft.tapsIn = {}; draft.tapsOut = {}; rerenderSheet(); },
   'd-more': () => { draft.more = !draft.more; rerenderSheet(); },
+  'd-flag': el => { draft[el.dataset.k] = !draft[el.dataset.k]; rerenderSheet(); },
+  'd-roll': el => {
+    const l = el.dataset.l, r = el.dataset.r;
+    draft.rolls[l] = draft.rolls[l] || {};
+    draft.rolls[l][r] = (draft.rolls[l][r] || 0) + 1;
+    haptic(); rerenderSheet();
+  },
+  'd-roll-clear': () => { draft.rolls = {}; rerenderSheet(); },
+  'd-partner-add': () => addPartner(draft.partnerInput),
+  'd-partner-pick': el => addPartner(el.dataset.v),
+  'd-partner-rm': el => { draft.partners = draft.partners.filter(p => p !== el.dataset.v); rerenderSheet(); },
+  'd-pos': el => {
+    if (!draft.posPick) return;
+    draft.positional.push({ pos: draft.posPick, result: el.dataset.r });
+    haptic(); rerenderSheet();
+  },
+  'd-pos-rm': el => { draft.positional.splice(Number(el.dataset.i), 1); rerenderSheet(); },
+  'voice-start': () => startVoice(),
+  'voice-stop': () => stopVoice(),
+  'voice-apply': () => { applyVoice(); rerenderSheet(); },
+  'voice-close': () => { draft.voice = null; rerenderSheet(); },
   'd-addmove': el => { draft.moves.push(el.dataset.id); draft.moveSearch = ''; rerenderSheet(); },
 
   /* skills */
@@ -156,7 +179,7 @@ const ACTIONS = {
   /* settings */
   settings: () => {
     draft = {
-      kind: 'settings', belt: state.belt, stripes: state.stripes,
+      kind: 'settings', belt: state.belt, stripes: state.stripes, name: state.profile.name, gym: state.profile.gym,
       since: toISODate(state.beltStartedAt), started: toISODate(state.startedAt),
       perWeek: state.goals.perWeek, rampTo: state.goals.rampTo, theme: state.settings.theme,
     };
@@ -181,13 +204,120 @@ const ACTIONS = {
     state.goals.perWeek = d.perWeek;
     state.goals.rampTo = Math.max(d.rampTo, d.perWeek);
     state.settings.theme = d.theme;
+    state.profile.name = (d.name || '').trim();
+    state.profile.gym = (d.gym || '').trim();
     save(); applyTheme(); closeSheet();
     toast(rankChanged ? 'Rank updated' : 'Saved');
     renderScreen();
   },
   backup: () => exportData(),
+
+  /* drills */
+  'drills-open': () => openDrills(),
+  'drills-mode': el => {
+    if (draft.timerId) clearInterval(draft.timerId);
+    draft = { kind: 'drills', mode: el.dataset.v, items: drillQueue(el.dataset.v), done: {}, active: null, left: 0, timerId: null };
+    rerenderSheet();
+  },
+  'drill-start': el => startDrill(el.dataset.id),
+  'drill-pause': () => {
+    if (draft.timerId) { clearInterval(draft.timerId); draft.timerId = null; }
+    else draft.timerId = setInterval(tickDrill, 1000);
+    rerenderSheet();
+  },
+  'drill-done': el => {
+    clearInterval(draft.timerId); draft.timerId = null;
+    draft.done[el.dataset.id] = true; draft.active = null; haptic();
+    rerenderSheet();
+  },
+  'drill-toggle': el => {
+    if (draft.done[el.dataset.id]) delete draft.done[el.dataset.id]; else draft.done[el.dataset.id] = true;
+    haptic(); rerenderSheet();
+  },
+  'drills-finish': () => {
+    const done = draft.items.filter(i => draft.done[i.id]);
+    if (!done.length) return;
+    state.drillLog.push({ id: 'dr_' + Date.now(), date: todayISO(), mode: draft.mode, items: done.map(i => i.name), moves: [...new Set(done.flatMap(i => i.moves))] });
+    save(); closeSheet(); toast(`${done.length} drill${done.length > 1 ? 's' : ''} logged`); renderScreen();
+  },
+
+  /* competitions */
+  'comp-new': () => {
+    draft = { kind: 'comp', id: null, name: '', date: addDays(todayISO(), 42), division: '', weightLimit: '', notes: '' };
+    openSheet(compSheetHTML());
+  },
+  'comp-open': el => { ui.compId = el.dataset.id; show('comp'); },
+  'comp-edit': el => {
+    const c = state.comps.find(x => x.id === el.dataset.id);
+    draft = { kind: 'comp', id: c.id, name: c.name, date: c.date, division: c.division || '', weightLimit: c.weightLimit || '', notes: c.notes || '' };
+    openSheet(compSheetHTML());
+  },
+  'comp-save': () => {
+    const d = draft;
+    if (!d.name.trim() || !d.date) { toast('Name and date needed'); return; }
+    const fields = { name: d.name.trim(), date: d.date, division: d.division.trim(), weightLimit: Number(d.weightLimit) || null, notes: d.notes.trim() };
+    if (d.id) Object.assign(state.comps.find(c => c.id === d.id), fields);
+    else { const id = 'comp_' + Date.now(); state.comps.push({ id, ...fields, matches: [], weighIns: [], done: {} }); ui.compId = id; }
+    save(); closeSheet(); show('comp');
+  },
+  'comp-delete': () => {
+    if (!confirm('Delete this competition and its matches?')) return;
+    state.comps = state.comps.filter(c => c.id !== ui.compId);
+    save(); show('comps'); toast('Deleted');
+  },
+  'comp-task': el => {
+    const c = state.comps.find(x => x.id === ui.compId);
+    c.done[el.dataset.k] = !c.done[el.dataset.k];
+    haptic(); save(); renderScreen();
+  },
+  'weigh-add': () => {
+    const kg = Number($('#weighIn').value);
+    if (!kg) { toast('Enter a weight'); return; }
+    const c = state.comps.find(x => x.id === ui.compId);
+    c.weighIns = c.weighIns.filter(w => w.date !== todayISO());
+    c.weighIns.push({ date: todayISO(), kg });
+    save(); renderScreen();
+  },
+  'match-new': () => { draft = { kind: 'match', i: null, result: 'win', method: 'sub', sub: null, score: '', opponent: '', notes: '' }; openSheet(matchSheetHTML()); },
+  'match-edit': el => {
+    const m = state.comps.find(x => x.id === ui.compId).matches[Number(el.dataset.i)];
+    draft = { kind: 'match', i: Number(el.dataset.i), result: m.result, method: m.method, sub: m.sub || null, score: m.score || '', opponent: m.opponent || '', notes: m.notes || '' };
+    openSheet(matchSheetHTML());
+  },
+  'match-save': () => {
+    const c = state.comps.find(x => x.id === ui.compId);
+    const d = draft;
+    const m = { result: d.result, method: d.method, sub: d.method === 'sub' ? d.sub : null, score: d.score.trim(), opponent: d.opponent.trim(), notes: d.notes.trim() };
+    if (d.i != null) c.matches[d.i] = m; else c.matches.push(m);
+    // a submission in competition is a tap too
+    save(); closeSheet(); toast('Match saved'); renderScreen();
+  },
+  'match-delete': () => {
+    state.comps.find(x => x.id === ui.compId).matches.splice(draft.i, 1);
+    save(); closeSheet(); renderScreen();
+  },
+  'go-plan': () => { ui.skillsTab = 'plan'; show('skills'); },
+
+  /* report */
+  'report-print': () => window.print(),
+  'report-share': async () => {
+    const text = reportText();
+    try {
+      if (navigator.share) { await navigator.share({ title: 'Mat Log training report', text }); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(text); toast('Copied to clipboard'); } catch (_) { toast('Sharing not available'); }
+  },
   restore: () => importData(),
 };
+
+function addPartner(name) {
+  const n = (name || '').trim().replace(/\s+/g, ' ');
+  if (!n) return;
+  const existing = partnerList().find(p => p.toLowerCase() === n.toLowerCase()) || capitalize(n);
+  if (!draft.partners.includes(existing)) draft.partners.push(existing);
+  draft.partnerInput = '';
+  rerenderSheet();
+}
 
 /* ---------- backup / restore ---------- */
 async function exportData() {
@@ -263,6 +393,7 @@ document.addEventListener('pointerover', e => {
 let reviewSaveTimer;
 document.addEventListener('input', e => {
   const el = e.target;
+  if (el.dataset.bindVoice && draft?.voice) { draft.voice.text = el.value; return; }
   if (el.dataset.bind && draft) {
     draft[el.dataset.bind] = el.dataset.num ? (Number(el.value) || 0) : el.value;
     // minutes typed by hand: update the chips without stealing focus
@@ -295,7 +426,10 @@ document.addEventListener('input', e => {
   }
 });
 $('#sheetBg').addEventListener('click', e => { if (e.target.id === 'sheetBg') closeSheet(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#sheetBg').classList.contains('open')) closeSheet(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && $('#sheetBg').classList.contains('open')) closeSheet();
+  if (e.key === 'Enter' && e.target.dataset?.bind === 'partnerInput') { e.preventDefault(); addPartner(draft.partnerInput); }
+});
 window.addEventListener('scroll', () => $('#tip').classList.remove('show'), { passive: true });
 
 /* ---------- startup ---------- */
